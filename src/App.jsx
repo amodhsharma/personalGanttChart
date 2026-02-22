@@ -359,6 +359,7 @@ export default function App() {
   const popoverStartRef = useRef(null);
   const popoverEndRef = useRef(null);
   const popoverTagRef = useRef(null);
+  const popoverRef = useRef(popover);
   const tagNameInputRef = useRef(null);
   const themeCssVarsRef = useRef(activeTheme.cssVars);
 
@@ -393,6 +394,10 @@ export default function App() {
   useEffect(() => {
     themeCssVarsRef.current = activeTheme.cssVars;
   }, [activeTheme]);
+
+  useEffect(() => {
+    popoverRef.current = popover;
+  }, [popover]);
 
   function applyAxisGradientForWindow(rangeStart, rangeEnd) {
     const timelineElement = timelineContainerRef.current;
@@ -614,6 +619,9 @@ export default function App() {
       clearHoverTimer();
       clearCloseTimer();
       closeTimerRef.current = window.setTimeout(() => {
+        if (popoverRef.current?.unlocked) {
+          return;
+        }
         if (!popoverHoverRef.current) {
           closePopover();
         }
@@ -1147,7 +1155,9 @@ export default function App() {
           }}
           onMouseLeave={() => {
             popoverHoverRef.current = false;
-            closePopover();
+            if (!popover.unlocked) {
+              closePopover();
+            }
           }}
         >
           <h3>Task Details</h3>
