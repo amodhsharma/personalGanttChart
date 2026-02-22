@@ -111,7 +111,7 @@ export default function LeftPanel({
                   value={form.tagName}
                   onChange={onChangeField}
                   style={
-                    form.tagName.trim() && form.tagColor
+                    form.tagColor
                       ? { backgroundColor: form.tagColor, borderColor: form.tagColor }
                       : undefined
                   }
