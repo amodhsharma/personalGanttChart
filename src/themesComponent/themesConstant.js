@@ -28,6 +28,8 @@ export const COLOR_TOKENS = {
   berryTimelineHeader: "#fde8ea",
   berryTimelineBorder: "#dcb9c8",
   berryTimelineGrid: "#e8c9d5",
+  berryTimelineGridMinor: "#ddb7c7",
+  berryTimelineGridMajor: "#c893ab",
 
   sageLight: "#C3D0B5",
   sageSoft: "#AFBDA1",
@@ -45,6 +47,8 @@ export const COLOR_TOKENS = {
   sageTimelineHeader: "#e4ecdf",
   sageTimelineBorder: "#c2d0bc",
   sageTimelineGrid: "#d3dfce",
+  sageTimelineGridMinor: "#c1ceb9",
+  sageTimelineGridMajor: "#9eb091",
 
   oceanLight: "#2C6487",
   oceanMid: "#1A486E",
@@ -61,7 +65,9 @@ export const COLOR_TOKENS = {
   aquaInputBorder: "#97c4d8",
   aquaTimelineHeader: "#ddf4fa",
   aquaTimelineBorder: "#9fcee2",
-  aquaTimelineGrid: "#c4e6f1"
+  aquaTimelineGrid: "#c4e6f1",
+  aquaTimelineGridMinor: "#afd8e8",
+  aquaTimelineGridMajor: "#7fb7cf"
 };
 
 // Each theme only defines semantic token references.
@@ -85,7 +91,9 @@ export const THEME_TOKEN_SETS = {
     timelineHeaderBg: "berryTimelineHeader",
     timelineBorder: "berryTimelineBorder",
     timelineAxisText: "plumMidnight",
-    timelineGrid: "berryTimelineGrid"
+    timelineGrid: "berryTimelineGrid",
+    timelineGridMinor: "berryTimelineGridMinor",
+    timelineGridMajor: "berryTimelineGridMajor"
   },
   theme2: {
     pageBg: "sagePageBg",
@@ -106,7 +114,9 @@ export const THEME_TOKEN_SETS = {
     timelineHeaderBg: "sageTimelineHeader",
     timelineBorder: "sageTimelineBorder",
     timelineAxisText: "tealDeep",
-    timelineGrid: "sageTimelineGrid"
+    timelineGrid: "sageTimelineGrid",
+    timelineGridMinor: "sageTimelineGridMinor",
+    timelineGridMajor: "sageTimelineGridMajor"
   },
   theme3: {
     pageBg: "aquaPageBg",
@@ -127,6 +137,8 @@ export const THEME_TOKEN_SETS = {
     timelineHeaderBg: "aquaTimelineHeader",
     timelineBorder: "aquaTimelineBorder",
     timelineAxisText: "oceanDeep",
-    timelineGrid: "aquaTimelineGrid"
+    timelineGrid: "aquaTimelineGrid",
+    timelineGridMinor: "aquaTimelineGridMinor",
+    timelineGridMajor: "aquaTimelineGridMajor"
   }
 };

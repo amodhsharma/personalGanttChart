@@ -30,7 +30,9 @@ const THEME_VAR_TO_TOKEN = {
   "--timeline-header-bg": "timelineHeaderBg",
   "--timeline-border": "timelineBorder",
   "--timeline-axis-text": "timelineAxisText",
-  "--timeline-grid": "timelineGrid"
+  "--timeline-grid": "timelineGrid",
+  "--timeline-grid-minor": "timelineGridMinor",
+  "--timeline-grid-major": "timelineGridMajor"
 };
 
 function resolveColor(tokenName) {

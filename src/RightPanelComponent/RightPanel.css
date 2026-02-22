@@ -193,9 +193,16 @@
   color: var(--timeline-axis-text);
 }
 
-.vis-timeline .vis-time-axis .vis-grid.vis-major,
-.vis-timeline .vis-time-axis .vis-grid.vis-minor {
-  border-color: var(--timeline-grid);
+.timeline .vis-grid.vis-vertical.vis-minor,
+.timeline .vis-time-axis .vis-grid.vis-minor {
+  border-color: var(--timeline-grid-minor);
+  border-left-width: 2px;
+}
+
+.timeline .vis-grid.vis-vertical.vis-major,
+.timeline .vis-time-axis .vis-grid.vis-major {
+  border-color: var(--timeline-grid-major);
+  border-left-width: 2.5px;
 }
 
 .timeline .vis-panel,

@@ -20,6 +20,8 @@
   --timeline-border: #dcb9c8;
   --timeline-axis-text: #3b1d51;
   --timeline-grid: #e8c9d5;
+  --timeline-grid-minor: #ddb7c7;
+  --timeline-grid-major: #c893ab;
 }
 
 * {
