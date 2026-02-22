@@ -101,12 +101,14 @@ export function useGoToLogic({ timelineRef, timelineContainerRef, setTimelineVie
           goToInputRef.current?.focus();
         }, 0);
       } else {
+        removeGoToCustomTimeMarker();
+        setGoToDate(null);
         setGoToInputValue("");
         goToInputRef.current?.setCustomValidity("");
       }
       return next;
     });
-  }, []);
+  }, [removeGoToCustomTimeMarker]);
 
   const onChangeGoToInput = useCallback((event) => {
     event.target.setCustomValidity("");
