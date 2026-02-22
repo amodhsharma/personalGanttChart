@@ -82,6 +82,29 @@ function addMonthsToDate(dateValue, monthsToAdd) {
   return new Date(year, month, clampedDay, hours, minutes, seconds, milliseconds);
 }
 
+function parseGoToDateInput(rawValue) {
+  const value = rawValue.trim();
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const parsed = new Date(year, month - 1, day);
+
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
 function mixRgb(baseColor, targetColor, ratio) {
   return {
     r: Math.round(baseColor.r + (targetColor.r - baseColor.r) * ratio),
@@ -225,6 +248,10 @@ export default function App() {
   const [showLogs, setShowLogs] = useState(false);
   const [timelineViewKey, setTimelineViewKey] = useState("default");
   const [timelineWindow, setTimelineWindow] = useState(null);
+  const [showGoToControls, setShowGoToControls] = useState(false);
+  const [goToInputValue, setGoToInputValue] = useState("");
+  const [goToDate, setGoToDate] = useState(null);
+  const [goToMarkerLeft, setGoToMarkerLeft] = useState(null);
   const [form, setForm] = useState(() => createEmptyForm(taskPalette[0]));
   const [popover, setPopover] = useState({
     visible: false,
@@ -250,6 +277,7 @@ export default function App() {
   const popoverTitleRef = useRef(null);
   const popoverStartRef = useRef(null);
   const popoverEndRef = useRef(null);
+  const goToInputRef = useRef(null);
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -562,6 +590,29 @@ export default function App() {
     timelineContainerRef.current.style.setProperty("--axis-month-gradient", gradient);
   }, [timelineWindow, activeTheme]);
 
+  useEffect(() => {
+    if (!goToDate || !timelineWindow || !timelineContainerRef.current) {
+      setGoToMarkerLeft(null);
+      return;
+    }
+
+    const totalRange = timelineWindow.endMs - timelineWindow.startMs;
+    const width = timelineContainerRef.current.clientWidth;
+    if (totalRange <= 0 || width <= 0) {
+      setGoToMarkerLeft(null);
+      return;
+    }
+
+    const ratio = (goToDate.getTime() - timelineWindow.startMs) / totalRange;
+    if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
+      setGoToMarkerLeft(null);
+      return;
+    }
+
+    const x = ratio * width;
+    setGoToMarkerLeft(Math.max(0, Math.min(width, x)));
+  }, [goToDate, timelineWindow]);
+
   function onChangeField(event) {
     const { name, value } = event.target;
     event.target.setCustomValidity("");
@@ -731,6 +782,52 @@ export default function App() {
     setTimelineViewKey(viewKey);
   }
 
+  function onToggleGoToControls() {
+    setShowGoToControls((current) => {
+      const next = !current;
+      if (next) {
+        window.setTimeout(() => {
+          goToInputRef.current?.focus();
+        }, 0);
+      }
+      return next;
+    });
+  }
+
+  function onChangeGoToInput(event) {
+    event.target.setCustomValidity("");
+    setGoToInputValue(event.target.value);
+  }
+
+  function onSubmitGoTo(event) {
+    event.preventDefault();
+    const focusDate = parseGoToDateInput(goToInputValue);
+    if (!focusDate) {
+      goToInputRef.current?.setCustomValidity("Use dd-mm-yyyy format.");
+      goToInputRef.current?.reportValidity();
+      return;
+    }
+
+    goToInputRef.current?.setCustomValidity("");
+    setGoToDate(focusDate);
+    setTimelineViewKey(null);
+
+    if (timelineRef.current) {
+      const leftBound = addMonthsToDate(focusDate, -1);
+      const rightBound = addMonthsToDate(focusDate, 1);
+      timelineRef.current.setWindow(leftBound, rightBound, { animation: false });
+      setTimelineWindow({ startMs: leftBound.getTime(), endMs: rightBound.getTime() });
+    }
+  }
+
+  function onClearGoTo() {
+    setGoToDate(null);
+    setGoToMarkerLeft(null);
+    setGoToInputValue("");
+    setShowGoToControls(false);
+    goToInputRef.current?.setCustomValidity("");
+  }
+
   return (
     <div className="app-shell">
       <LeftPanel
@@ -762,6 +859,15 @@ export default function App() {
         timelineViewOptions={TIMELINE_VIEW_OPTIONS}
         timelineViewKey={timelineViewKey}
         onSelectTimelineView={onSelectTimelineView}
+        showGoToControls={showGoToControls}
+        goToInputValue={goToInputValue}
+        goToInputRef={goToInputRef}
+        onToggleGoToControls={onToggleGoToControls}
+        onChangeGoToInput={onChangeGoToInput}
+        onSubmitGoTo={onSubmitGoTo}
+        hasGoToMarker={Boolean(goToDate) && goToMarkerLeft !== null}
+        goToMarkerLeft={goToMarkerLeft}
+        onClearGoTo={onClearGoTo}
         timelineContainerRef={timelineContainerRef}
       />
 
