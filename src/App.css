@@ -136,14 +136,35 @@ button.confirm-delete-btn {
   gap: 8px;
 }
 
-.popover-swatches {
+.popover-tag-field {
+  display: grid;
+  gap: 6px;
+}
+
+.popover-tag-caption {
+  font-size: 0.78rem;
+  color: var(--text-subtle);
+}
+
+.popover-tag-palette {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.popover-swatches .swatch:disabled {
+.popover-tag-palette .swatch:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.popover-tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.popover-tag-suggestions .tag-suggestion-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 

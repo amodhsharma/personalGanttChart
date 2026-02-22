@@ -5,7 +5,8 @@ export default function LeftPanel({
   form,
   startDateInputRef,
   endDateInputRef,
-  taskPalette,
+  tagNameInputRef,
+  tagPaletteColors,
   durationOptions,
   todayISO,
   activeThemeName,
@@ -19,7 +20,9 @@ export default function LeftPanel({
   onSubmit,
   onSetToday,
   onApplyDuration,
-  onPickColor,
+  tagSuggestions,
+  onPickTagColor,
+  onSelectTagSuggestion,
   onResetForm,
   onCycleTheme,
   onToggleTrash,
@@ -96,19 +99,53 @@ export default function LeftPanel({
                 </button>
               ))}
             </div>
-          </div>
 
-          <div className="palette-row">
-            {taskPalette.map((color) => (
-              <button
-                key={color}
-                type="button"
-                className={`swatch ${form.color === color ? "active" : ""}`}
-                style={{ backgroundColor: color }}
-                aria-label={`Select color ${color}`}
-                onClick={() => onPickColor(color)}
-              />
-            ))}
+            <label className="tag-field">
+              Add Tags
+              <div className="tag-input-row">
+                <input
+                  ref={tagNameInputRef}
+                  type="text"
+                  name="tagName"
+                  placeholder="Add a custom tag"
+                  value={form.tagName}
+                  onChange={onChangeField}
+                  style={
+                    form.tagName.trim() && form.tagColor
+                      ? { backgroundColor: form.tagColor, borderColor: form.tagColor }
+                      : undefined
+                  }
+                />
+              </div>
+              <span className="tag-color-caption">Select Tag Color *</span>
+              <div className="tag-color-palette" aria-label="Select tag color">
+                {tagPaletteColors.map((color) => (
+                  <button
+                    key={`tag-color-${color}`}
+                    type="button"
+                    className={`swatch tag-swatch-btn ${form.tagColor === color ? "active" : ""}`}
+                    style={{ backgroundColor: color }}
+                    aria-label={`Select tag color ${color}`}
+                    onClick={() => onPickTagColor(color)}
+                  />
+                ))}
+              </div>
+              {tagSuggestions.length > 0 ? (
+                <div className="tag-suggestions">
+                  {tagSuggestions.map((tag) => (
+                    <button
+                      key={`${tag.name}-${tag.color}`}
+                      type="button"
+                      className="tag-suggestion-btn"
+                      onClick={() => onSelectTagSuggestion(tag)}
+                    >
+                      <span className="tag-swatch" style={{ backgroundColor: tag.color }} />
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </label>
           </div>
 
           <div className="form-actions">

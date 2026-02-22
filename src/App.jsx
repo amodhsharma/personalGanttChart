@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Timeline } from "vis-timeline/standalone";
 import "vis-timeline/styles/vis-timeline-graph2d.min.css";
 import {
@@ -37,6 +37,7 @@ import LeftPanel from "./LeftPanelComponent/LeftPanel";
 import RightPanel from "./RightPanelComponent/RightPanel";
 
 const STORAGE_KEY = "personalGanttPlannerTasks";
+const TAG_MATTE_COLORS = ["#bfd8e6", "#c8e7cc", "#f4ddc8", "#f1d2d2", "#d8d0e8", "#f1e8cf"];
 const DURATION_OPTIONS = [
   { label: "1M", months: 1 },
   { label: "3M", months: 3 },
@@ -233,13 +234,29 @@ function loadTasks() {
   }
 }
 
-function createEmptyForm(defaultColor) {
+function createEmptyForm(defaultColor, defaultTagColor = "") {
   return {
     title: "",
     startDate: "",
     endDate: "",
-    color: defaultColor
+    color: defaultColor,
+    tagName: "",
+    tagColor: defaultTagColor
   };
+}
+
+function buildKnownTags(tasks) {
+  const byKey = new Map();
+  tasks.forEach((task) => {
+    const rawTagName = typeof task.tagName === "string" ? task.tagName.trim() : "";
+    if (!rawTagName) return;
+    const key = rawTagName.toLowerCase();
+    byKey.set(key, {
+      name: rawTagName,
+      color: task.tagColor || "#9ca3af"
+    });
+  });
+  return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function createId() {
@@ -304,6 +321,7 @@ export default function App() {
   const [themeKey, setThemeKey] = useState(loadStoredThemeKey);
   const activeTheme = getTheme(themeKey);
   const taskPalette = TASK_PASTEL_COLORS;
+  const tagPaletteColors = TAG_MATTE_COLORS;
   const todayISO = dateToLocalISO(new Date());
 
   const [tasks, setTasks] = useState(loadTasks);
@@ -340,6 +358,8 @@ export default function App() {
   const popoverTitleRef = useRef(null);
   const popoverStartRef = useRef(null);
   const popoverEndRef = useRef(null);
+  const popoverTagRef = useRef(null);
+  const tagNameInputRef = useRef(null);
   const themeCssVarsRef = useRef(activeTheme.cssVars);
 
   const goToControls = useGoToLogic({
@@ -348,6 +368,27 @@ export default function App() {
     setTimelineViewKey
   });
   const onGoToTimelineRangeChanged = goToControls.onTimelineRangeChanged;
+  const knownTags = useMemo(() => buildKnownTags(tasks), [tasks]);
+  const tagSuggestions = useMemo(() => {
+    const query = form.tagName.trim().toLowerCase();
+    if (!query) return [];
+    return knownTags
+      .filter((tag) => {
+        const lower = tag.name.toLowerCase();
+        return lower.includes(query) && lower !== query;
+      })
+      .slice(0, 8);
+  }, [form.tagName, knownTags]);
+  const popoverTagSuggestions = useMemo(() => {
+    const query = (popover.draft?.tagName || "").trim().toLowerCase();
+    if (!query) return [];
+    return knownTags
+      .filter((tag) => {
+        const lower = tag.name.toLowerCase();
+        return lower.includes(query) && lower !== query;
+      })
+      .slice(0, 8);
+  }, [knownTags, popover.draft]);
 
   useEffect(() => {
     themeCssVarsRef.current = activeTheme.cssVars;
@@ -393,10 +434,12 @@ export default function App() {
 
   useEffect(() => {
     setForm((current) => {
-      if (taskPalette.includes(current.color)) return current;
-      return { ...current, color: taskPalette[0] };
+      const nextColor = taskPalette.includes(current.color) ? current.color : taskPalette[0];
+      const nextTagColor = current.tagColor && tagPaletteColors.includes(current.tagColor) ? current.tagColor : "";
+      if (nextColor === current.color && nextTagColor === current.tagColor) return current;
+      return { ...current, color: nextColor, tagColor: nextTagColor };
     });
-  }, [taskPalette]);
+  }, [tagPaletteColors, taskPalette]);
 
   function appendLog(action, taskTitle) {
     setLogs((previous) =>
@@ -466,7 +509,9 @@ export default function App() {
         title: task.title,
         startDate: task.startDate,
         endDate: task.endDate,
-        color: task.color || taskPalette[0]
+        color: task.color || taskPalette[0],
+        tagName: task.tagName || "",
+        tagColor: task.tagColor || ""
       }
     });
   }
@@ -743,7 +788,9 @@ export default function App() {
         title: task.title,
         startDate: task.startDate,
         endDate: task.endDate,
-        color: task.color || taskPalette[0]
+        color: task.color || taskPalette[0],
+        tagName: task.tagName || "",
+        tagColor: task.tagColor || ""
       };
       const currentDraft = popover.draft;
       const changed =
@@ -751,7 +798,9 @@ export default function App() {
         currentDraft.title !== nextDraft.title ||
         currentDraft.startDate !== nextDraft.startDate ||
         currentDraft.endDate !== nextDraft.endDate ||
-        currentDraft.color !== nextDraft.color;
+        currentDraft.color !== nextDraft.color ||
+        currentDraft.tagName !== nextDraft.tagName ||
+        currentDraft.tagColor !== nextDraft.tagColor;
       if (changed) {
         setPopover((current) => ({ ...current, draft: nextDraft }));
       }
@@ -764,19 +813,43 @@ export default function App() {
     if (name === "startDate") {
       endDateInputRef.current?.setCustomValidity("");
     }
+    if (name === "tagName") {
+      tagNameInputRef.current?.setCustomValidity("");
+    }
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  function onPickTagColor(color) {
+    tagNameInputRef.current?.setCustomValidity("");
+    setForm((current) => ({
+      ...current,
+      tagColor: color,
+      color
+    }));
+  }
+
+  function onSelectTagSuggestion(tag) {
+    tagNameInputRef.current?.setCustomValidity("");
+    setForm((current) => ({
+      ...current,
+      tagName: tag.name,
+      tagColor: tag.color || current.tagColor,
+      color: tag.color || current.color
+    }));
   }
 
   function resetForm() {
     setForm(createEmptyForm(taskPalette[0]));
     startDateInputRef.current?.setCustomValidity("");
     endDateInputRef.current?.setCustomValidity("");
+    tagNameInputRef.current?.setCustomValidity("");
   }
 
   function onSubmit(event) {
     event.preventDefault();
     startDateInputRef.current?.setCustomValidity("");
     endDateInputRef.current?.setCustomValidity("");
+    tagNameInputRef.current?.setCustomValidity("");
 
     if (isIsoDateInPast(form.endDate)) {
       endDateInputRef.current?.setCustomValidity(END_DATE_IN_PAST_ERROR);
@@ -790,12 +863,20 @@ export default function App() {
       return;
     }
 
+    const trimmedTagName = form.tagName.trim();
+    if (trimmedTagName && !form.tagColor) {
+      tagNameInputRef.current?.setCustomValidity("Select a color for this tag.");
+      tagNameInputRef.current?.reportValidity();
+      return;
+    }
     const nextTask = {
       id: createId(),
       title: form.title.trim(),
       startDate: form.startDate,
       endDate: form.endDate,
-      color: form.color
+      color: form.tagColor || form.color,
+      tagName: trimmedTagName,
+      tagColor: trimmedTagName ? form.tagColor : ""
     };
     setTasks((previous) => [...previous, nextTask]);
     appendLog("added", nextTask.title);
@@ -808,13 +889,6 @@ export default function App() {
       ...current,
       startDate: today,
       endDate: current.endDate || today
-    }));
-  }
-
-  function onPickColor(color) {
-    setForm((current) => ({
-      ...current,
-      color
     }));
   }
 
@@ -836,6 +910,9 @@ export default function App() {
   function onPopoverFieldChange(event) {
     const { name, value } = event.target;
     event.target.setCustomValidity("");
+    if (name === "tagName") {
+      popoverTagRef.current?.setCustomValidity("");
+    }
     setPopover((current) => {
       if (!current.draft) return current;
       return {
@@ -846,13 +923,30 @@ export default function App() {
     });
   }
 
-  function onPopoverPickColor(color) {
+  function onPopoverPickTagColor(color) {
+    popoverTagRef.current?.setCustomValidity("");
     setPopover((current) => {
       if (!current.draft) return current;
       return {
         ...current,
         deleteArmed: false,
-        draft: { ...current.draft, color }
+        draft: { ...current.draft, tagColor: color, color }
+      };
+    });
+  }
+
+  function onSelectPopoverTagSuggestion(tag) {
+    popoverTagRef.current?.setCustomValidity("");
+    setPopover((current) => {
+      if (!current.draft) return current;
+      return {
+        ...current,
+        draft: {
+          ...current.draft,
+          tagName: tag.name,
+          tagColor: tag.color || current.draft.tagColor,
+          color: tag.color || current.draft.color
+        }
       };
     });
   }
@@ -871,6 +965,7 @@ export default function App() {
     popoverTitleRef.current?.setCustomValidity("");
     popoverStartRef.current?.setCustomValidity("");
     popoverEndRef.current?.setCustomValidity("");
+    popoverTagRef.current?.setCustomValidity("");
 
     if (!popover.draft.title.trim()) {
       popoverTitleRef.current?.setCustomValidity("Task title is required.");
@@ -896,16 +991,27 @@ export default function App() {
       return;
     }
 
+    const trimmedTagName = (popover.draft.tagName || "").trim();
+    if (trimmedTagName && !popover.draft.tagColor) {
+      popoverTagRef.current?.setCustomValidity("Select a color for this tag.");
+      popoverTagRef.current?.reportValidity();
+      return;
+    }
+
     setTasks((previous) =>
       previous.map((task) =>
         task.id === popover.taskId
-          ? {
-              ...task,
-              title: popover.draft.title.trim(),
-              startDate: popover.draft.startDate,
-              endDate: popover.draft.endDate,
-              color: popover.draft.color
-            }
+          ? (() => {
+              return {
+                ...task,
+                title: popover.draft.title.trim(),
+                startDate: popover.draft.startDate,
+                endDate: popover.draft.endDate,
+                color: popover.draft.color,
+                tagName: trimmedTagName,
+                tagColor: trimmedTagName ? popover.draft.tagColor : ""
+              };
+            })()
           : task
       )
     );
@@ -983,7 +1089,8 @@ export default function App() {
         form={form}
         startDateInputRef={startDateInputRef}
         endDateInputRef={endDateInputRef}
-        taskPalette={taskPalette}
+        tagNameInputRef={tagNameInputRef}
+        tagPaletteColors={tagPaletteColors}
         durationOptions={DURATION_OPTIONS}
         todayISO={todayISO}
         activeThemeName={activeTheme.name}
@@ -997,7 +1104,9 @@ export default function App() {
         onSubmit={onSubmit}
         onSetToday={onSetToday}
         onApplyDuration={onApplyDuration}
-        onPickColor={onPickColor}
+        tagSuggestions={tagSuggestions}
+        onPickTagColor={onPickTagColor}
+        onSelectTagSuggestion={onSelectTagSuggestion}
         onResetForm={resetForm}
         onCycleTheme={onCycleTheme}
         onToggleTrash={onToggleTrash}
@@ -1083,19 +1192,52 @@ export default function App() {
             </label>
           </div>
 
-          <div className="popover-swatches">
-            {taskPalette.map((color) => (
-              <button
-                key={`popover-${color}`}
-                type="button"
-                className={`swatch ${popover.draft.color === color ? "active" : ""}`}
-                style={{ backgroundColor: color }}
-                aria-label={`Select color ${color}`}
-                onClick={() => onPopoverPickColor(color)}
-                disabled={!popover.unlocked}
-              />
-            ))}
-          </div>
+          <label className="popover-tag-field">
+            Add Tags
+            <input
+              ref={popoverTagRef}
+              type="text"
+              name="tagName"
+              value={popover.draft.tagName || ""}
+              onChange={onPopoverFieldChange}
+              style={
+                popover.draft.tagName?.trim() && popover.draft.tagColor
+                  ? { backgroundColor: popover.draft.tagColor }
+                  : undefined
+              }
+              disabled={!popover.unlocked}
+            />
+            <span className="popover-tag-caption">Select Tag Color *</span>
+            <div className="popover-tag-palette">
+              {tagPaletteColors.map((color) => (
+                <button
+                  key={`popover-tag-${color}`}
+                  type="button"
+                  className={`swatch ${popover.draft.tagColor === color ? "active" : ""}`}
+                  style={{ backgroundColor: color }}
+                  aria-label={`Select tag color ${color}`}
+                  onClick={() => onPopoverPickTagColor(color)}
+                  disabled={!popover.unlocked}
+                />
+              ))}
+            </div>
+            {popoverTagSuggestions.length > 0 ? (
+              <div className="popover-tag-suggestions">
+                {popoverTagSuggestions.map((tag) => (
+                  <button
+                    key={`popover-suggestion-${tag.name}-${tag.color}`}
+                    type="button"
+                    className="tag-suggestion-btn"
+                    onClick={() => onSelectPopoverTagSuggestion(tag)}
+                    disabled={!popover.unlocked}
+                  >
+                    <span className="tag-swatch" style={{ backgroundColor: tag.color }} />
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </label>
 
           <div className="popover-actions">
             <button
