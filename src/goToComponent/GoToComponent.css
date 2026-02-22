@@ -46,6 +46,35 @@
   pointer-events: none;
 }
 
+.timeline .vis-current-time {
+  overflow: visible;
+}
+
+.timeline .vis-current-time::after {
+  content: "Present";
+  position: absolute;
+  top: var(--goto-pin-top, 36px);
+  left: 1px;
+  min-width: 58px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid #a92a2a;
+  background: #d64545;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  z-index: 24;
+}
+
 .timeline .vis-custom-time.goto-custom-time > div:first-child {
   pointer-events: none;
 }
@@ -53,18 +82,22 @@
 .timeline .vis-custom-time.goto-custom-time .vis-custom-time-marker.goto-custom-time-pin {
   position: absolute;
   top: var(--goto-pin-top, 36px);
-  width: 22px;
+  left: 1px;
+  min-width: 44px;
   height: 22px;
+  padding: 0 8px;
   border-radius: 999px;
   border: 1px solid #1f5e99;
   background: #2f82d9;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: translateX(-11px);
+  transform: translateX(-50%);
+  white-space: nowrap;
   cursor: pointer;
   user-select: none;
   pointer-events: auto;

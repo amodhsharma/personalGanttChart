@@ -66,7 +66,7 @@ export function useGoToLogic({ timelineRef, timelineContainerRef, setTimelineVie
         timeline.addCustomTime(markerDate, GO_TO_CUSTOM_TIME_ID);
       }
 
-      timeline.setCustomTimeMarker("×", GO_TO_CUSTOM_TIME_ID, false);
+      timeline.setCustomTimeMarker("GoTo", GO_TO_CUSTOM_TIME_ID, false);
       timeline.setCustomTimeTitle("", GO_TO_CUSTOM_TIME_ID);
 
       const markerBar = timelineContainerRef.current?.querySelector(
