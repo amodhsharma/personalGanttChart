@@ -137,6 +137,12 @@
   background-color: transparent !important;
 }
 
+.timeline .vis-item.vis-background.timeline-month-band {
+  border: 0 !important;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .vis-timeline .vis-item {
   border-radius: 8px;
   font-weight: 600;

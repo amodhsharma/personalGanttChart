@@ -107,42 +107,83 @@ function toRgba(color, alpha) {
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
 }
 
-function buildTimelineAxisGradient(windowStartMs, windowEndMs, themeVars) {
-  if (!windowStartMs || !windowEndMs || windowEndMs <= windowStartMs) return "none";
-  const totalRange = windowEndMs - windowStartMs;
-  const windowStart = new Date(windowStartMs);
-  const windowEnd = new Date(windowEndMs);
+function getMonthBandColor(monthStart, themeVars) {
+  const fallbackPrimary = "#5b3676";
+  const fallbackSecondary = "#fc9398";
+  const primary =
+    hexToRgb(themeVars["--btn-primary-bg"] || fallbackPrimary) || hexToRgb(fallbackPrimary);
+  const secondary =
+    hexToRgb(themeVars["--btn-secondary-bg"] || fallbackSecondary) || hexToRgb(fallbackSecondary);
+  const base = monthStart.getFullYear() % 2 === 0 ? primary : secondary;
+  const lightTarget = monthStart.getMonth() % 2 === 0 ? { r: 255, g: 255, b: 255 } : { r: 244, g: 245, b: 247 };
+  const mixRatio = monthStart.getFullYear() % 2 === 0 ? 0.72 : 0.62;
+  const alpha = 0.5;
+  return toRgba(mixRgb(base, lightTarget, mixRatio), alpha);
+}
 
-  let cursor = new Date(windowStart.getFullYear(), windowStart.getMonth(), 1);
+function buildTimelineMonthBandItems(rangeStart, rangeEnd, themeVars) {
+  if (!rangeStart || !rangeEnd) return [];
+  if (rangeEnd.getTime() <= rangeStart.getTime()) return [];
+
+  const windowStartMs = rangeStart.getTime();
+  const windowEndMs = rangeEnd.getTime();
+  let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
   if (cursor.getTime() > windowStartMs) {
-    cursor = new Date(windowStart.getFullYear(), windowStart.getMonth() - 1, 1);
+    cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth() - 1, 1);
+  }
+
+  const items = [];
+  while (cursor.getTime() < windowEndMs) {
+    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    const segmentStartMs = Math.max(monthStart.getTime(), windowStartMs);
+    const segmentEndMs = Math.min(monthEnd.getTime(), windowEndMs);
+
+    if (segmentEndMs > segmentStartMs) {
+      const labelYear = monthStart.getFullYear();
+      const labelMonth = String(monthStart.getMonth() + 1).padStart(2, "0");
+      items.push({
+        id: `timeline-month-band-${labelYear}-${labelMonth}`,
+        start: new Date(segmentStartMs),
+        end: new Date(segmentEndMs),
+        type: "background",
+        className: "timeline-month-band",
+        style: `background: ${getMonthBandColor(monthStart, themeVars)}; border: none;`
+      });
+    }
+
+    cursor = monthEnd;
+  }
+
+  return items;
+}
+
+function buildTimelineAxisGradient(rangeStart, rangeEnd, themeVars) {
+  if (!rangeStart || !rangeEnd) return "none";
+  const windowStartMs = rangeStart.getTime();
+  const windowEndMs = rangeEnd.getTime();
+  if (!Number.isFinite(windowStartMs) || !Number.isFinite(windowEndMs) || windowEndMs <= windowStartMs) {
+    return "none";
+  }
+
+  const totalRange = windowEndMs - windowStartMs;
+  let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  if (cursor.getTime() > windowStartMs) {
+    cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth() - 1, 1);
   }
 
   const stops = [];
-
-  while (cursor < windowEnd) {
+  while (cursor.getTime() < windowEndMs) {
     const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
     const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-    const segmentStart = Math.max(monthStart.getTime(), windowStartMs);
-    const segmentEnd = Math.min(monthEnd.getTime(), windowEndMs);
+    const segmentStartMs = Math.max(monthStart.getTime(), windowStartMs);
+    const segmentEndMs = Math.min(monthEnd.getTime(), windowEndMs);
 
-    if (segmentEnd > segmentStart) {
-      const left = ((segmentStart - windowStartMs) / totalRange) * 100;
-      const right = ((segmentEnd - windowStartMs) / totalRange) * 100;
-      const bandColor = (() => {
-        const fallbackPrimary = "#5b3676";
-        const fallbackSecondary = "#fc9398";
-        const primary =
-          hexToRgb(themeVars["--btn-primary-bg"] || fallbackPrimary) || hexToRgb(fallbackPrimary);
-        const secondary =
-          hexToRgb(themeVars["--btn-secondary-bg"] || fallbackSecondary) || hexToRgb(fallbackSecondary);
-        const base = monthStart.getFullYear() % 2 === 0 ? primary : secondary;
-        const lightTarget = monthStart.getMonth() % 2 === 0 ? { r: 255, g: 255, b: 255 } : { r: 244, g: 245, b: 247 };
-        const mixRatio = monthStart.getFullYear() % 2 === 0 ? 0.72 : 0.62;
-        const alpha = 0.5;
-        return toRgba(mixRgb(base, lightTarget, mixRatio), alpha);
-      })();
-      stops.push(`${bandColor} ${left.toFixed(3)}% ${right.toFixed(3)}%`);
+    if (segmentEndMs > segmentStartMs) {
+      const left = ((segmentStartMs - windowStartMs) / totalRange) * 100;
+      const right = ((segmentEndMs - windowStartMs) / totalRange) * 100;
+      const color = getMonthBandColor(monthStart, themeVars);
+      stops.push(`${color} ${left.toFixed(3)}% ${right.toFixed(3)}%`);
     }
 
     cursor = monthEnd;
@@ -150,6 +191,28 @@ function buildTimelineAxisGradient(windowStartMs, windowEndMs, themeVars) {
 
   if (stops.length === 0) return "none";
   return `linear-gradient(to right, ${stops.join(", ")})`;
+}
+
+function buildMonthBandCoverageRange(tasks, currentWindow) {
+  const now = new Date();
+  let minMs = now.getTime();
+  let maxMs = now.getTime();
+
+  tasks.forEach((task) => {
+    const taskStartMs = new Date(`${task.startDate}T00:00:00`).getTime();
+    const taskEndMs = addDays(new Date(`${task.endDate}T00:00:00`), 1).getTime();
+    if (Number.isFinite(taskStartMs)) minMs = Math.min(minMs, taskStartMs);
+    if (Number.isFinite(taskEndMs)) maxMs = Math.max(maxMs, taskEndMs);
+  });
+
+  if (currentWindow?.start instanceof Date && currentWindow?.end instanceof Date) {
+    minMs = Math.min(minMs, currentWindow.start.getTime());
+    maxMs = Math.max(maxMs, currentWindow.end.getTime());
+  }
+
+  const coverStart = addMonthsToDate(new Date(minMs), -180);
+  const coverEnd = addMonthsToDate(new Date(maxMs), 180);
+  return { coverStart, coverEnd };
 }
 
 function isValidTask(task) {
@@ -250,7 +313,6 @@ export default function App() {
   const [showTrash, setShowTrash] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [timelineViewKey, setTimelineViewKey] = useState("default");
-  const [timelineWindow, setTimelineWindow] = useState(null);
   const [form, setForm] = useState(() => createEmptyForm(taskPalette[0]));
   const [popover, setPopover] = useState({
     visible: false,
@@ -278,6 +340,7 @@ export default function App() {
   const popoverTitleRef = useRef(null);
   const popoverStartRef = useRef(null);
   const popoverEndRef = useRef(null);
+  const themeCssVarsRef = useRef(activeTheme.cssVars);
 
   const goToControls = useGoToLogic({
     timelineRef,
@@ -285,6 +348,17 @@ export default function App() {
     setTimelineViewKey
   });
   const onGoToTimelineRangeChanged = goToControls.onTimelineRangeChanged;
+
+  useEffect(() => {
+    themeCssVarsRef.current = activeTheme.cssVars;
+  }, [activeTheme]);
+
+  function applyAxisGradientForWindow(rangeStart, rangeEnd) {
+    const timelineElement = timelineContainerRef.current;
+    if (!timelineElement || !rangeStart || !rangeEnd) return;
+    const gradient = buildTimelineAxisGradient(rangeStart, rangeEnd, themeCssVarsRef.current);
+    timelineElement.style.setProperty("--axis-month-gradient", gradient);
+  }
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -502,10 +576,10 @@ export default function App() {
     };
 
     const handleRangeChanged = (properties) => {
-      const startMs = properties?.start ? new Date(properties.start).getTime() : null;
-      const endMs = properties?.end ? new Date(properties.end).getTime() : null;
-      if (startMs && endMs) {
-        setTimelineWindow({ startMs, endMs });
+      const rangeStart = properties?.start ? new Date(properties.start) : null;
+      const rangeEnd = properties?.end ? new Date(properties.end) : null;
+      if (rangeStart && rangeEnd) {
+        applyAxisGradientForWindow(rangeStart, rangeEnd);
       }
       if (properties?.byUser) {
         setTimelineViewKey(null);
@@ -516,13 +590,14 @@ export default function App() {
     timelineRef.current.on("itemover", handleItemOver);
     timelineRef.current.on("itemout", handleItemOut);
     timelineRef.current.on("rangechanged", handleRangeChanged);
+    timelineRef.current.on("rangechange", handleRangeChanged);
 
     const gestureScopeElement = timelineCanvasRef.current || timelineContainerRef.current;
 
     const applyWindow = (startMs, endMs) => {
       if (!timelineRef.current) return;
       timelineRef.current.setWindow(new Date(startMs), new Date(endMs), { animation: false });
-      setTimelineWindow({ startMs, endMs });
+      applyAxisGradientForWindow(new Date(startMs), new Date(endMs));
       setTimelineViewKey(null);
     };
 
@@ -597,6 +672,8 @@ export default function App() {
     gestureScopeElement?.addEventListener("gesturestart", handleGestureEvent, { passive: false });
     gestureScopeElement?.addEventListener("gesturechange", handleGestureEvent, { passive: false });
     gestureScopeElement?.addEventListener("gestureend", handleGestureEvent, { passive: false });
+    const initialWindow = timelineRef.current.getWindow();
+    applyAxisGradientForWindow(initialWindow.start, initialWindow.end);
 
     return () => {
       clearHoverTimer();
@@ -604,6 +681,7 @@ export default function App() {
       timelineRef.current?.off("itemover", handleItemOver);
       timelineRef.current?.off("itemout", handleItemOut);
       timelineRef.current?.off("rangechanged", handleRangeChanged);
+      timelineRef.current?.off("rangechange", handleRangeChanged);
       gestureScopeElement?.removeEventListener("mousemove", handlePointerMove);
       gestureScopeElement?.removeEventListener("wheel", handleWheelGesture);
       gestureScopeElement?.removeEventListener("touchmove", handleTouchMove);
@@ -617,16 +695,20 @@ export default function App() {
 
   useEffect(() => {
     if (!timelineRef.current) return;
-    const items = tasks.map((task) => taskToTimelineItem(task, taskPalette[0]));
+    const taskItems = tasks.map((task) => taskToTimelineItem(task, taskPalette[0]));
     const groups = tasks.map((task, index) => ({
       id: task.id,
       content: "",
       order: index
     }));
-    timelineRef.current.setGroups(groups);
-    timelineRef.current.setItems(items);
 
     if (timelineViewKey === null) {
+      const currentWindow = timelineRef.current.getWindow();
+      const { coverStart, coverEnd } = buildMonthBandCoverageRange(tasks, currentWindow);
+      const monthBandItems = buildTimelineMonthBandItems(coverStart, coverEnd, activeTheme.cssVars);
+      timelineRef.current.setGroups(groups);
+      timelineRef.current.setItems([...monthBandItems, ...taskItems]);
+      applyAxisGradientForWindow(currentWindow.start, currentWindow.end);
       return;
     }
 
@@ -639,9 +721,14 @@ export default function App() {
       const now = new Date();
       const rightBound = addMonthsToDate(now, selectedView.months || 1);
       timelineRef.current.setWindow(now, rightBound, { animation: false });
-      setTimelineWindow({ startMs: now.getTime(), endMs: rightBound.getTime() });
     }
-  }, [tasks, taskPalette, timelineViewKey]);
+    const currentWindow = timelineRef.current.getWindow();
+    const { coverStart, coverEnd } = buildMonthBandCoverageRange(tasks, currentWindow);
+    const monthBandItems = buildTimelineMonthBandItems(coverStart, coverEnd, activeTheme.cssVars);
+    timelineRef.current.setGroups(groups);
+    timelineRef.current.setItems([...monthBandItems, ...taskItems]);
+    applyAxisGradientForWindow(currentWindow.start, currentWindow.end);
+  }, [themeKey, tasks, taskPalette, timelineViewKey]);
 
   useEffect(() => {
     if (!popover.visible || !popover.taskId) return;
@@ -670,17 +757,6 @@ export default function App() {
       }
     }
   }, [tasks, taskPalette, popover]);
-
-  useEffect(() => {
-    if (!timelineContainerRef.current) return;
-    if (!timelineWindow) {
-      timelineContainerRef.current.style.removeProperty("--axis-month-gradient");
-      return;
-    }
-
-    const gradient = buildTimelineAxisGradient(timelineWindow.startMs, timelineWindow.endMs, activeTheme.cssVars);
-    timelineContainerRef.current.style.setProperty("--axis-month-gradient", gradient);
-  }, [timelineWindow, activeTheme]);
 
   function onChangeField(event) {
     const { name, value } = event.target;
