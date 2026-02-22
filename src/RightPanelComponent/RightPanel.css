@@ -113,11 +113,24 @@
 }
 
 .timeline {
+  position: relative;
   height: 100%;
   min-height: 460px;
   border: 1px solid var(--timeline-border);
   border-radius: 10px;
   --axis-month-gradient: none;
+  overflow: hidden;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--axis-month-gradient);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .goto-marker {
@@ -158,6 +171,9 @@
 
 .vis-timeline {
   border: 0;
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
 }
 
 .timeline .vis-panel.vis-top,
@@ -174,6 +190,13 @@
 .vis-timeline .vis-time-axis .vis-grid.vis-major,
 .vis-timeline .vis-time-axis .vis-grid.vis-minor {
   border-color: var(--timeline-grid);
+}
+
+.timeline .vis-panel,
+.timeline .vis-content,
+.timeline .vis-background,
+.timeline .vis-time-axis {
+  background-color: transparent !important;
 }
 
 .vis-timeline .vis-item {
