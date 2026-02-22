@@ -5,7 +5,9 @@ export const TASK_PASTEL_COLORS = ["#bfd8e6", "#c8e7cc", "#f4ddc8", "#f1d2d2", "
 export const THEME_LABELS = {
   theme1: "Theme 1",
   theme2: "Theme 2",
-  theme3: "Theme 3"
+  theme3: "Theme 3",
+  theme4: "Eshu",
+  theme5: "Theme 5"
 };
 
 // Central named color dictionary for all themes.
@@ -67,7 +69,25 @@ export const COLOR_TOKENS = {
   aquaTimelineBorder: "#9fcee2",
   aquaTimelineGrid: "#c4e6f1",
   aquaTimelineGridMinor: "#afd8e8",
-  aquaTimelineGridMajor: "#7fb7cf"
+  aquaTimelineGridMajor: "#7fb7cf",
+
+  eshuYellowLight: "#FEFE36",
+  eshuYellowMid: "#FAFA07",
+  eshuYellowDeep: "#D3D301",
+  eshuYellowDark: "#ACAC01",
+  eshuGrayLight: "#484B4B",
+  eshuGrayMid: "#373A3A",
+  eshuGrayDeep: "#27292A",
+  eshuGrayDark: "#18191A",
+
+  theme5PinkLight: "#FF3E72",
+  theme5PinkMid: "#FF013F",
+  theme5PinkDeep: "#E20033",
+  theme5PinkDark: "#C40029",
+  theme5BlueLight: "#306A88",
+  theme5BlueMid: "#1D4D6E",
+  theme5BlueDeep: "#0C375B",
+  theme5BlueDark: "#03294F"
 };
 
 // Each theme only defines semantic token references.
@@ -140,5 +160,51 @@ export const THEME_TOKEN_SETS = {
     timelineGrid: "aquaTimelineGrid",
     timelineGridMinor: "aquaTimelineGridMinor",
     timelineGridMajor: "aquaTimelineGridMajor"
+  },
+  theme4: {
+    pageBg: "eshuYellowLight",
+    panelBg: "eshuYellowMid",
+    panelBorder: "eshuYellowDeep",
+    textMain: "eshuGrayDark",
+    textSubtle: "eshuGrayMid",
+    textLabel: "eshuGrayDeep",
+    inputBg: "eshuYellowLight",
+    inputBorder: "eshuYellowDark",
+    buttonPrimaryBg: "eshuGrayMid",
+    buttonPrimaryText: "white",
+    buttonSecondaryBg: "eshuYellowLight",
+    buttonSecondaryText: "eshuGrayDark",
+    buttonDangerBg: "eshuYellowDark",
+    errorText: "eshuGrayDark",
+    swatchRing: "eshuGrayLight",
+    timelineHeaderBg: "eshuYellowMid",
+    timelineBorder: "eshuYellowDark",
+    timelineAxisText: "eshuGrayDark",
+    timelineGrid: "eshuYellowDeep",
+    timelineGridMinor: "eshuYellowDark",
+    timelineGridMajor: "eshuGrayMid"
+  },
+  theme5: {
+    pageBg: "theme5BlueLight",
+    panelBg: "theme5BlueMid",
+    panelBorder: "theme5BlueDeep",
+    textMain: "white",
+    textSubtle: "theme5PinkLight",
+    textLabel: "white",
+    inputBg: "theme5BlueDeep",
+    inputBorder: "theme5BlueDark",
+    buttonPrimaryBg: "theme5PinkMid",
+    buttonPrimaryText: "white",
+    buttonSecondaryBg: "theme5BlueLight",
+    buttonSecondaryText: "white",
+    buttonDangerBg: "theme5PinkDark",
+    errorText: "theme5PinkLight",
+    swatchRing: "theme5PinkLight",
+    timelineHeaderBg: "theme5BlueDeep",
+    timelineBorder: "theme5BlueDark",
+    timelineAxisText: "white",
+    timelineGrid: "theme5BlueMid",
+    timelineGridMinor: "theme5BlueLight",
+    timelineGridMajor: "theme5PinkDeep"
   }
 };

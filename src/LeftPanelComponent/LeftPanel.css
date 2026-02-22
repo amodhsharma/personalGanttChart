@@ -132,6 +132,8 @@
 .theme-button {
   background: var(--btn-primary-bg);
   color: var(--btn-primary-text);
+  min-width: 92px;
+  text-align: center;
 }
 
 .control-dock-row > button:nth-child(odd) {
