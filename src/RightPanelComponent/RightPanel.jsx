@@ -10,6 +10,7 @@ export default function RightPanel({
   onToggleGoToControls,
   onChangeGoToInput,
   onSubmitGoTo,
+  goToInputPattern,
   hasGoToMarker,
   goToMarkerLeft,
   onClearGoTo,
@@ -49,7 +50,7 @@ export default function RightPanel({
                     value={goToInputValue}
                     onChange={onChangeGoToInput}
                     placeholder="dd-mm-yyyy"
-                    pattern="[0-9]{2}-[0-9]{2}-[0-9]{4}"
+                    pattern={goToInputPattern}
                     inputMode="numeric"
                     required
                   />

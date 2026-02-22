@@ -4,6 +4,8 @@ const ONE_YEAR_MS = 365 * ONE_DAY_MS;
 export const TIMELINE_ZOOM_MIN_MS = 10 * ONE_DAY_MS;
 export const TIMELINE_ZOOM_MAX_MS = 10 * ONE_YEAR_MS;
 export const END_DATE_IN_PAST_ERROR = "End date cannot be in the past.";
+export const DATE_DD_MM_YYYY_ERROR = "Use dd-mm-yyyy format.";
+export const DATE_DD_MM_YYYY_INPUT_PATTERN = "[0-9]{2}-[0-9]{2}-[0-9]{4}";
 
 export const TIMELINE_VIEW_OPTIONS = [
   { key: "default", label: "Default", type: "default", months: 24 },
@@ -22,4 +24,30 @@ export function isIsoDateInPast(isoDate) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return candidate.getTime() < today.getTime();
+}
+
+export function parseDdMmYyyyToDate(rawValue) {
+  const value = (rawValue || "").trim();
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+export function isValidDdMmYyyy(rawValue) {
+  return Boolean(parseDdMmYyyyToDate(rawValue));
 }

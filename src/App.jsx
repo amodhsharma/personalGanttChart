@@ -18,7 +18,10 @@ import {
   toTextLog
 } from "./components/Logs";
 import {
+  DATE_DD_MM_YYYY_ERROR,
+  DATE_DD_MM_YYYY_INPUT_PATTERN,
   END_DATE_IN_PAST_ERROR,
+  parseDdMmYyyyToDate,
   isIsoDateInPast,
   TIMELINE_VIEW_OPTIONS,
   TIMELINE_ZOOM_MAX_MS,
@@ -80,29 +83,6 @@ function addMonthsToDate(dateValue, monthsToAdd) {
   const lastDayOfTargetMonth = new Date(year, month + 1, 0).getDate();
   const clampedDay = Math.min(day, lastDayOfTargetMonth);
   return new Date(year, month, clampedDay, hours, minutes, seconds, milliseconds);
-}
-
-function parseGoToDateInput(rawValue) {
-  const value = rawValue.trim();
-  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
-  if (!match) return null;
-
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  const parsed = new Date(year, month - 1, day);
-
-  if (
-    Number.isNaN(parsed.getTime()) ||
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day
-  ) {
-    return null;
-  }
-
-  parsed.setHours(0, 0, 0, 0);
-  return parsed;
 }
 
 function mixRgb(baseColor, targetColor, ratio) {
@@ -801,9 +781,9 @@ export default function App() {
 
   function onSubmitGoTo(event) {
     event.preventDefault();
-    const focusDate = parseGoToDateInput(goToInputValue);
+    const focusDate = parseDdMmYyyyToDate(goToInputValue);
     if (!focusDate) {
-      goToInputRef.current?.setCustomValidity("Use dd-mm-yyyy format.");
+      goToInputRef.current?.setCustomValidity(DATE_DD_MM_YYYY_ERROR);
       goToInputRef.current?.reportValidity();
       return;
     }
@@ -865,6 +845,7 @@ export default function App() {
         onToggleGoToControls={onToggleGoToControls}
         onChangeGoToInput={onChangeGoToInput}
         onSubmitGoTo={onSubmitGoTo}
+        goToInputPattern={DATE_DD_MM_YYYY_INPUT_PATTERN}
         hasGoToMarker={Boolean(goToDate) && goToMarkerLeft !== null}
         goToMarkerLeft={goToMarkerLeft}
         onClearGoTo={onClearGoTo}
