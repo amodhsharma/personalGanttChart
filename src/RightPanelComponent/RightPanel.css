@@ -142,6 +142,12 @@
   border-left: 2px solid #2f82d9;
   z-index: 8;
   overflow: visible;
+  cursor: default;
+  pointer-events: none;
+}
+
+.timeline .vis-custom-time.goto-custom-time > div:first-child {
+  pointer-events: none;
 }
 
 .timeline .vis-custom-time.goto-custom-time .vis-custom-time-marker.goto-custom-time-pin {
