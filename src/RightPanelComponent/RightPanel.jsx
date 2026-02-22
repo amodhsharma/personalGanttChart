@@ -1,16 +1,11 @@
 import "./RightPanel.css";
+import GoToComponent from "../goToComponent/GoToComponent";
 
 export default function RightPanel({
   timelineViewOptions,
   timelineViewKey,
   onSelectTimelineView,
-  showGoToControls,
-  goToInputValue,
-  goToInputRef,
-  onToggleGoToControls,
-  onChangeGoToInput,
-  onSubmitGoTo,
-  goToInputPattern,
+  goToControls,
   timelineCanvasRef,
   timelineContainerRef
 }) {
@@ -32,32 +27,7 @@ export default function RightPanel({
                 </button>
               ))}
             </div>
-            <div className="timeline-goto-row">
-              <button
-                type="button"
-                className={`timeline-range-btn timeline-goto-trigger ${showGoToControls ? "active" : ""}`}
-                onClick={onToggleGoToControls}
-              >
-                Go-To
-              </button>
-              {showGoToControls ? (
-                <form className="timeline-goto-form" onSubmit={onSubmitGoTo}>
-                  <input
-                    ref={goToInputRef}
-                    type="text"
-                    value={goToInputValue}
-                    onChange={onChangeGoToInput}
-                    placeholder="dd-mm-yyyy"
-                    pattern={goToInputPattern}
-                    inputMode="numeric"
-                    required
-                  />
-                  <button type="submit" className="timeline-range-btn timeline-goto-submit">
-                    Go
-                  </button>
-                </form>
-              ) : null}
-            </div>
+            <GoToComponent {...goToControls} />
           </div>
         </div>
         <p>Hover a task for a second to open details.</p>

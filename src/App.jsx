@@ -18,10 +18,7 @@ import {
   toTextLog
 } from "./components/Logs";
 import {
-  DATE_DD_MM_YYYY_ERROR,
-  DATE_DD_MM_YYYY_INPUT_PATTERN,
   END_DATE_IN_PAST_ERROR,
-  parseDdMmYyyyToDate,
   isIsoDateInPast,
   TIMELINE_VIEW_OPTIONS,
   TIMELINE_ZOOM_MAX_MS,
@@ -35,6 +32,7 @@ import {
   restoreTaskFromTrash,
   upsertTrashTask
 } from "./deletecomponent/deleteLogic";
+import { useGoToLogic } from "./goToComponent/goToLogic";
 import LeftPanel from "./LeftPanelComponent/LeftPanel";
 import RightPanel from "./RightPanelComponent/RightPanel";
 
@@ -51,7 +49,6 @@ const POPOVER_WIDTH = 320;
 const POPOVER_HEIGHT = 330;
 const POPOVER_VIEWPORT_PADDING = 12;
 const POPOVER_CURSOR_OFFSET = 2;
-const GO_TO_CUSTOM_TIME_ID = "go-to-marker";
 
 function dateToLocalISO(dateValue) {
   const date = new Date(dateValue);
@@ -254,9 +251,6 @@ export default function App() {
   const [showLogs, setShowLogs] = useState(false);
   const [timelineViewKey, setTimelineViewKey] = useState("default");
   const [timelineWindow, setTimelineWindow] = useState(null);
-  const [showGoToControls, setShowGoToControls] = useState(false);
-  const [goToInputValue, setGoToInputValue] = useState("");
-  const [goToDate, setGoToDate] = useState(null);
   const [form, setForm] = useState(() => createEmptyForm(taskPalette[0]));
   const [popover, setPopover] = useState({
     visible: false,
@@ -284,7 +278,13 @@ export default function App() {
   const popoverTitleRef = useRef(null);
   const popoverStartRef = useRef(null);
   const popoverEndRef = useRef(null);
-  const goToInputRef = useRef(null);
+
+  const goToControls = useGoToLogic({
+    timelineRef,
+    timelineContainerRef,
+    setTimelineViewKey
+  });
+  const onGoToTimelineRangeChanged = goToControls.onTimelineRangeChanged;
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -395,61 +395,6 @@ export default function App() {
         color: task.color || taskPalette[0]
       }
     });
-  }
-
-  function updateGoToPinVerticalPosition() {
-    const timelineElement = timelineContainerRef.current;
-    if (!timelineElement) return;
-    const axisForeground = timelineElement.querySelector(".vis-time-axis.vis-foreground");
-    const boundaryPx = axisForeground
-      ? Math.round(axisForeground.offsetTop + axisForeground.offsetHeight)
-      : 36;
-    timelineElement.style.setProperty("--goto-pin-top", `${boundaryPx}px`);
-  }
-
-  function syncGoToCustomTimeMarker(targetDate) {
-    if (!timelineRef.current) return;
-    const timeline = timelineRef.current;
-    const markerDate = new Date(targetDate);
-
-    try {
-      timeline.setCustomTime(markerDate, GO_TO_CUSTOM_TIME_ID);
-    } catch {
-      timeline.addCustomTime(markerDate, GO_TO_CUSTOM_TIME_ID);
-    }
-
-    timeline.setCustomTimeMarker("×", GO_TO_CUSTOM_TIME_ID, false);
-    timeline.setCustomTimeTitle("", GO_TO_CUSTOM_TIME_ID);
-
-    const markerBar = timelineContainerRef.current?.querySelector(
-      `.vis-custom-time.${GO_TO_CUSTOM_TIME_ID}`
-    );
-    markerBar?.classList.add("goto-custom-time");
-
-    const markerPin = markerBar?.querySelector(".vis-custom-time-marker");
-    if (markerPin) {
-      markerPin.classList.add("goto-custom-time-pin");
-      markerPin.setAttribute("role", "button");
-      markerPin.setAttribute("aria-label", "Clear go-to marker");
-      markerPin.onclick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onClearGoTo();
-      };
-    }
-
-    window.requestAnimationFrame(() => {
-      updateGoToPinVerticalPosition();
-    });
-  }
-
-  function removeGoToCustomTimeMarker() {
-    if (!timelineRef.current) return;
-    try {
-      timelineRef.current.removeCustomTime(GO_TO_CUSTOM_TIME_ID);
-    } catch {
-      // no-op when marker is not present
-    }
   }
 
   useEffect(() => {
@@ -565,7 +510,7 @@ export default function App() {
       if (properties?.byUser) {
         setTimelineViewKey(null);
       }
-      updateGoToPinVerticalPosition();
+      onGoToTimelineRangeChanged();
     };
 
     timelineRef.current.on("itemover", handleItemOver);
@@ -652,18 +597,6 @@ export default function App() {
     gestureScopeElement?.addEventListener("gesturestart", handleGestureEvent, { passive: false });
     gestureScopeElement?.addEventListener("gesturechange", handleGestureEvent, { passive: false });
     gestureScopeElement?.addEventListener("gestureend", handleGestureEvent, { passive: false });
-    window.addEventListener("resize", updateGoToPinVerticalPosition);
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => {
-            updateGoToPinVerticalPosition();
-          })
-        : null;
-    resizeObserver?.observe(timelineContainerRef.current);
-
-    window.requestAnimationFrame(() => {
-      updateGoToPinVerticalPosition();
-    });
 
     return () => {
       clearHoverTimer();
@@ -677,12 +610,10 @@ export default function App() {
       gestureScopeElement?.removeEventListener("gesturestart", handleGestureEvent);
       gestureScopeElement?.removeEventListener("gesturechange", handleGestureEvent);
       gestureScopeElement?.removeEventListener("gestureend", handleGestureEvent);
-      window.removeEventListener("resize", updateGoToPinVerticalPosition);
-      resizeObserver?.disconnect();
       timelineRef.current?.destroy();
       timelineRef.current = null;
     };
-  }, [taskPalette]);
+  }, [onGoToTimelineRangeChanged, taskPalette]);
 
   useEffect(() => {
     if (!timelineRef.current) return;
@@ -750,15 +681,6 @@ export default function App() {
     const gradient = buildTimelineAxisGradient(timelineWindow.startMs, timelineWindow.endMs, activeTheme.cssVars);
     timelineContainerRef.current.style.setProperty("--axis-month-gradient", gradient);
   }, [timelineWindow, activeTheme]);
-
-  useEffect(() => {
-    if (!timelineRef.current) return;
-    if (!goToDate) {
-      removeGoToCustomTimeMarker();
-      return;
-    }
-    syncGoToCustomTimeMarker(goToDate);
-  }, [goToDate]);
 
   function onChangeField(event) {
     const { name, value } = event.target;
@@ -979,56 +901,6 @@ export default function App() {
     setTimelineViewKey(viewKey);
   }
 
-  function onToggleGoToControls() {
-    setShowGoToControls((current) => {
-      const next = !current;
-      if (next) {
-        window.setTimeout(() => {
-          goToInputRef.current?.focus();
-        }, 0);
-      } else {
-        setGoToInputValue("");
-        goToInputRef.current?.setCustomValidity("");
-      }
-      return next;
-    });
-  }
-
-  function onChangeGoToInput(event) {
-    event.target.setCustomValidity("");
-    setGoToInputValue(event.target.value);
-  }
-
-  function onSubmitGoTo(event) {
-    event.preventDefault();
-    const focusDate = parseDdMmYyyyToDate(goToInputValue);
-    if (!focusDate) {
-      goToInputRef.current?.setCustomValidity(DATE_DD_MM_YYYY_ERROR);
-      goToInputRef.current?.reportValidity();
-      return;
-    }
-
-    goToInputRef.current?.setCustomValidity("");
-    syncGoToCustomTimeMarker(focusDate);
-    setGoToDate(focusDate);
-    setTimelineViewKey(null);
-
-    if (timelineRef.current) {
-      const leftBound = addMonthsToDate(focusDate, -1);
-      const rightBound = addMonthsToDate(focusDate, 1);
-      timelineRef.current.setWindow(leftBound, rightBound, { animation: false });
-      setTimelineWindow({ startMs: leftBound.getTime(), endMs: rightBound.getTime() });
-    }
-  }
-
-  function onClearGoTo() {
-    removeGoToCustomTimeMarker();
-    setGoToDate(null);
-    setGoToInputValue("");
-    setShowGoToControls(false);
-    goToInputRef.current?.setCustomValidity("");
-  }
-
   return (
     <div className="app-shell">
       <LeftPanel
@@ -1075,13 +947,7 @@ export default function App() {
         timelineViewOptions={TIMELINE_VIEW_OPTIONS}
         timelineViewKey={timelineViewKey}
         onSelectTimelineView={onSelectTimelineView}
-        showGoToControls={showGoToControls}
-        goToInputValue={goToInputValue}
-        goToInputRef={goToInputRef}
-        onToggleGoToControls={onToggleGoToControls}
-        onChangeGoToInput={onChangeGoToInput}
-        onSubmitGoTo={onSubmitGoTo}
-        goToInputPattern={DATE_DD_MM_YYYY_INPUT_PATTERN}
+        goToControls={goToControls}
         timelineCanvasRef={timelineCanvasRef}
         timelineContainerRef={timelineContainerRef}
       />
