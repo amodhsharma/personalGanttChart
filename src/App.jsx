@@ -223,11 +223,22 @@ function getReadableTextColor(backgroundColor) {
   return luminance > 0.55 ? "#1f2937" : "#f9fafb";
 }
 
+function getDarkerBorderColor(baseColor, amount = 0.24) {
+  const rgb = hexToRgb(baseColor);
+  if (!rgb) return baseColor;
+  const factor = 1 - amount;
+  const r = Math.max(0, Math.round(rgb.r * factor));
+  const g = Math.max(0, Math.round(rgb.g * factor));
+  const b = Math.max(0, Math.round(rgb.b * factor));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 function taskToTimelineItem(task, fallbackColor) {
   const start = new Date(`${task.startDate}T00:00:00`);
   const endInclusive = new Date(`${task.endDate}T00:00:00`);
   const endExclusive = addDays(endInclusive, 1);
   const taskColor = task.color || fallbackColor;
+  const borderColor = getDarkerBorderColor(taskColor);
   const textColor = getReadableTextColor(taskColor);
   return {
     id: task.id,
@@ -235,7 +246,7 @@ function taskToTimelineItem(task, fallbackColor) {
     content: task.title,
     start,
     end: endExclusive,
-    style: `background: ${taskColor}; border-color: ${taskColor}; color: ${textColor};`
+    style: `background: ${taskColor}; border-color: ${borderColor}; border-width: 2px; color: ${textColor};`
   };
 }
 
