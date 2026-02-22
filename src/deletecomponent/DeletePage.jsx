@@ -1,26 +1,7 @@
-import "./TrashPage.css";
+import "./DeletePage.css";
+import { formatDeletedAt, formatIsoToDdMmYyyy } from "./deleteLogic";
 
-function formatIsoToDdMmYyyy(isoDate) {
-  const date = new Date(`${isoDate}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return isoDate;
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear());
-  return `${day}-${month}-${year}`;
-}
-
-function formatDeletedAt(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear()).slice(-2);
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${day}-${month}-${year} ${hours}:${minutes}`;
-}
-
-export default function TrashPage({
+export default function DeletePage({
   showTrash,
   trashedTasks,
   onClose,

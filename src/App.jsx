@@ -27,11 +27,18 @@ import {
   TIMELINE_ZOOM_MAX_MS,
   TIMELINE_ZOOM_MIN_MS
 } from "./Validations";
+import {
+  TRASH_STORAGE_KEY,
+  createTrashedTask,
+  loadTrashTasks,
+  removeTrashTaskById,
+  restoreTaskFromTrash,
+  upsertTrashTask
+} from "./deletecomponent/deleteLogic";
 import LeftPanel from "./LeftPanelComponent/LeftPanel";
 import RightPanel from "./RightPanelComponent/RightPanel";
 
 const STORAGE_KEY = "personalGanttPlannerTasks";
-const TRASH_STORAGE_KEY = "personalGanttPlannerTrashTasks";
 const DURATION_OPTIONS = [
   { label: "1M", months: 1 },
   { label: "3M", months: 3 },
@@ -160,24 +167,6 @@ function loadTasks() {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(isValidTask);
-  } catch {
-    return [];
-  }
-}
-
-function isValidTrashTask(task) {
-  if (!isValidTask(task)) return false;
-  if (!task.deletedAt || typeof task.deletedAt !== "string") return false;
-  return !Number.isNaN(new Date(task.deletedAt).getTime());
-}
-
-function loadTrashTasks() {
-  try {
-    const raw = localStorage.getItem(TRASH_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidTrashTask);
   } catch {
     return [];
   }
@@ -880,11 +869,8 @@ export default function App() {
 
     const task = tasksRef.current.find((entry) => entry.id === popover.taskId);
     if (task) {
-      const trashedTask = {
-        ...task,
-        deletedAt: new Date().toISOString()
-      };
-      setTrashedTasks((previous) => [trashedTask, ...previous.filter((entry) => entry.id !== task.id)]);
+      const trashedTask = createTrashedTask(task);
+      setTrashedTasks((previous) => upsertTrashTask(previous, trashedTask));
     }
     setTasks((previous) => previous.filter((task) => task.id !== popover.taskId));
     appendLog("deleted", task?.title || "");
@@ -905,13 +891,7 @@ export default function App() {
     const taskToRestore = trashedTasks.find((task) => task.id === taskId);
     if (!taskToRestore) return;
 
-    const restoredTask = {
-      id: taskToRestore.id,
-      title: taskToRestore.title,
-      startDate: taskToRestore.startDate,
-      endDate: taskToRestore.endDate,
-      color: taskToRestore.color
-    };
+    const restoredTask = restoreTaskFromTrash(taskToRestore);
 
     setTasks((previous) => {
       if (previous.some((task) => task.id === restoredTask.id)) {
@@ -919,13 +899,13 @@ export default function App() {
       }
       return [...previous, restoredTask];
     });
-    setTrashedTasks((previous) => previous.filter((task) => task.id !== taskId));
+    setTrashedTasks((previous) => removeTrashTaskById(previous, taskId));
     appendLog("restored", restoredTask.title);
   }
 
   function onDeleteTrashTaskPermanently(taskId) {
     const taskToDelete = trashedTasks.find((task) => task.id === taskId);
-    setTrashedTasks((previous) => previous.filter((task) => task.id !== taskId));
+    setTrashedTasks((previous) => removeTrashTaskById(previous, taskId));
     appendLog("permanently deleted", taskToDelete?.title || "");
   }
 

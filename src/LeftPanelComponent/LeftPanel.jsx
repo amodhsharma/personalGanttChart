@@ -1,5 +1,5 @@
 import "./LeftPanel.css";
-import TrashPage from "../components/TrashPage";
+import DeletePage from "../deletecomponent/DeletePage";
 
 export default function LeftPanel({
   form,
@@ -134,7 +134,7 @@ export default function LeftPanel({
         </div>
       </aside>
 
-      <TrashPage
+      <DeletePage
         showTrash={showTrash}
         trashedTasks={trashedTasks}
         onClose={onCloseTrash}
