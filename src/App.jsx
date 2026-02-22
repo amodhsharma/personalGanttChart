@@ -31,6 +31,7 @@ import LeftPanel from "./LeftPanelComponent/LeftPanel";
 import RightPanel from "./RightPanelComponent/RightPanel";
 
 const STORAGE_KEY = "personalGanttPlannerTasks";
+const TRASH_STORAGE_KEY = "personalGanttPlannerTrashTasks";
 const DURATION_OPTIONS = [
   { label: "1M", months: 1 },
   { label: "3M", months: 3 },
@@ -160,6 +161,24 @@ function loadTasks() {
   }
 }
 
+function isValidTrashTask(task) {
+  if (!isValidTask(task)) return false;
+  if (!task.deletedAt || typeof task.deletedAt !== "string") return false;
+  return !Number.isNaN(new Date(task.deletedAt).getTime());
+}
+
+function loadTrashTasks() {
+  try {
+    const raw = localStorage.getItem(TRASH_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidTrashTask);
+  } catch {
+    return [];
+  }
+}
+
 function createEmptyForm(defaultColor) {
   return {
     title: "",
@@ -223,8 +242,10 @@ export default function App() {
   const todayISO = dateToLocalISO(new Date());
 
   const [tasks, setTasks] = useState(loadTasks);
+  const [trashedTasks, setTrashedTasks] = useState(loadTrashTasks);
   const [logs, setLogs] = useState(loadLogs);
   const [loggingEnabled, setLoggingEnabled] = useState(loadLoggingEnabled);
+  const [showTrash, setShowTrash] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [timelineViewKey, setTimelineViewKey] = useState("default");
   const [timelineWindow, setTimelineWindow] = useState(null);
@@ -266,6 +287,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(trashedTasks));
+  }, [trashedTasks]);
 
   useEffect(() => {
     saveLogs(logs);
@@ -749,9 +774,60 @@ export default function App() {
   function onDeleteFromPopover() {
     if (!popover.taskId) return;
     const task = tasksRef.current.find((entry) => entry.id === popover.taskId);
+    if (task) {
+      const trashedTask = {
+        ...task,
+        deletedAt: new Date().toISOString()
+      };
+      setTrashedTasks((previous) => [trashedTask, ...previous.filter((entry) => entry.id !== task.id)]);
+    }
     setTasks((previous) => previous.filter((task) => task.id !== popover.taskId));
     appendLog("deleted", task?.title || "");
     closePopover();
+  }
+
+  function onToggleTrash() {
+    setShowTrash((current) => {
+      const next = !current;
+      if (next) {
+        setShowLogs(false);
+      }
+      return next;
+    });
+  }
+
+  function onRestoreTrashTask(taskId) {
+    const taskToRestore = trashedTasks.find((task) => task.id === taskId);
+    if (!taskToRestore) return;
+
+    const restoredTask = {
+      id: taskToRestore.id,
+      title: taskToRestore.title,
+      startDate: taskToRestore.startDate,
+      endDate: taskToRestore.endDate,
+      color: taskToRestore.color
+    };
+
+    setTasks((previous) => {
+      if (previous.some((task) => task.id === restoredTask.id)) {
+        return [...previous, { ...restoredTask, id: createId() }];
+      }
+      return [...previous, restoredTask];
+    });
+    setTrashedTasks((previous) => previous.filter((task) => task.id !== taskId));
+    appendLog("restored", restoredTask.title);
+  }
+
+  function onDeleteTrashTaskPermanently(taskId) {
+    const taskToDelete = trashedTasks.find((task) => task.id === taskId);
+    setTrashedTasks((previous) => previous.filter((task) => task.id !== taskId));
+    appendLog("permanently deleted", taskToDelete?.title || "");
+  }
+
+  function onClearTrash() {
+    if (trashedTasks.length === 0) return;
+    setTrashedTasks([]);
+    appendLog("cleared trash", "all deleted tasks");
   }
 
   function onCycleTheme() {
@@ -769,6 +845,9 @@ export default function App() {
         window.setTimeout(() => {
           goToInputRef.current?.focus();
         }, 0);
+      } else {
+        setGoToInputValue("");
+        goToInputRef.current?.setCustomValidity("");
       }
       return next;
     });
@@ -818,6 +897,8 @@ export default function App() {
         durationOptions={DURATION_OPTIONS}
         todayISO={todayISO}
         activeThemeName={activeTheme.name}
+        showTrash={showTrash}
+        trashedTasks={trashedTasks}
         showLogs={showLogs}
         logs={logs}
         logsText={toTextLog(logs)}
@@ -829,7 +910,20 @@ export default function App() {
         onPickColor={onPickColor}
         onResetForm={resetForm}
         onCycleTheme={onCycleTheme}
-        onToggleLogs={() => setShowLogs((current) => !current)}
+        onToggleTrash={onToggleTrash}
+        onCloseTrash={() => setShowTrash(false)}
+        onRestoreTrashTask={onRestoreTrashTask}
+        onDeleteTrashTaskPermanently={onDeleteTrashTaskPermanently}
+        onClearTrash={onClearTrash}
+        onToggleLogs={() =>
+          setShowLogs((current) => {
+            const next = !current;
+            if (next) {
+              setShowTrash(false);
+            }
+            return next;
+          })
+        }
         onCloseLogs={() => setShowLogs(false)}
         onClearLogs={() => setLogs([])}
         onToggleLogging={() => setLoggingEnabled((current) => !current)}

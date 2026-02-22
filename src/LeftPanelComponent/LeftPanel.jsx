@@ -1,4 +1,5 @@
 import "./LeftPanel.css";
+import TrashPage from "../components/TrashPage";
 
 export default function LeftPanel({
   form,
@@ -8,6 +9,8 @@ export default function LeftPanel({
   durationOptions,
   todayISO,
   activeThemeName,
+  showTrash,
+  trashedTasks,
   showLogs,
   logs,
   logsText,
@@ -19,6 +22,11 @@ export default function LeftPanel({
   onPickColor,
   onResetForm,
   onCycleTheme,
+  onToggleTrash,
+  onCloseTrash,
+  onRestoreTrashTask,
+  onDeleteTrashTaskPermanently,
+  onClearTrash,
   onToggleLogs,
   onCloseLogs,
   onClearLogs,
@@ -112,14 +120,28 @@ export default function LeftPanel({
         </form>
 
         <div className="control-dock">
-          <button type="button" className="theme-button" onClick={onCycleTheme}>
-            {activeThemeName}
-          </button>
-          <button type="button" className="logs-button secondary" onClick={onToggleLogs}>
-            Logs
-          </button>
+          <div className="control-dock-row">
+            <button type="button" className="theme-button" onClick={onCycleTheme}>
+              {activeThemeName}
+            </button>
+            <button type="button" className="logs-button secondary" onClick={onToggleLogs}>
+              Logs
+            </button>
+            <button type="button" className="trash-button secondary" onClick={onToggleTrash}>
+              Trash ({trashedTasks.length})
+            </button>
+          </div>
         </div>
       </aside>
+
+      <TrashPage
+        showTrash={showTrash}
+        trashedTasks={trashedTasks}
+        onClose={onCloseTrash}
+        onRestoreTask={onRestoreTrashTask}
+        onDeleteTaskPermanently={onDeleteTrashTaskPermanently}
+        onClearTrash={onClearTrash}
+      />
 
       {showLogs ? (
         <section className="logs-panel">

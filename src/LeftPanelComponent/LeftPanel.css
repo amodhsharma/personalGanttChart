@@ -107,7 +107,19 @@
   padding-top: 20px;
   display: flex;
   gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.control-dock-row {
+  display: flex;
+  gap: 8px;
   align-items: center;
+}
+
+.trash-button {
+  width: auto;
+  text-align: center;
 }
 
 .theme-button,
@@ -120,6 +132,16 @@
 .theme-button {
   background: var(--btn-primary-bg);
   color: var(--btn-primary-text);
+}
+
+.control-dock-row > button:nth-child(odd) {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+}
+
+.control-dock-row > button:nth-child(even) {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
 }
 
 .logs-panel {
