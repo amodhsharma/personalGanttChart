@@ -105,11 +105,15 @@
 .timeline-frame {
   padding: 14px;
   min-height: 0;
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 .timeline-canvas {
   position: relative;
   height: 100%;
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 .timeline {
@@ -174,6 +178,8 @@
   position: relative;
   z-index: 1;
   background: transparent !important;
+  height: 100%;
+  min-height: 100%;
 }
 
 .timeline .vis-panel.vis-top,

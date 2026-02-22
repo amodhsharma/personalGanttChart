@@ -14,6 +14,7 @@ export default function RightPanel({
   hasGoToMarker,
   goToMarkerLeft,
   onClearGoTo,
+  timelineCanvasRef,
   timelineContainerRef
 }) {
   return (
@@ -65,7 +66,7 @@ export default function RightPanel({
         <p>Hover a task for a second to open details.</p>
       </div>
       <div className="timeline-frame">
-        <div className="timeline-canvas">
+        <div ref={timelineCanvasRef} className="timeline-canvas">
           <div ref={timelineContainerRef} className="timeline" />
           {hasGoToMarker ? (
             <div className="goto-marker" style={{ left: `${goToMarkerLeft}px` }}>

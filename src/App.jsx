@@ -86,6 +86,10 @@ function addMonthsToDate(dateValue, monthsToAdd) {
   return new Date(year, month, clampedDay, hours, minutes, seconds, milliseconds);
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function mixRgb(baseColor, targetColor, ratio) {
   return {
     r: Math.round(baseColor.r + (targetColor.r - baseColor.r) * ratio),
@@ -264,6 +268,7 @@ export default function App() {
   });
 
   const timelineContainerRef = useRef(null);
+  const timelineCanvasRef = useRef(null);
   const timelineRef = useRef(null);
   const tasksRef = useRef(tasks);
   const hoverTimerRef = useRef(null);
@@ -400,7 +405,7 @@ export default function App() {
       zoomMax: TIMELINE_ZOOM_MAX_MS,
       orientation: {
         axis: "top",
-        item: "bottom"
+        item: "top"
       },
       format: {
         minorLabels: {
@@ -508,13 +513,86 @@ export default function App() {
     timelineRef.current.on("itemout", handleItemOut);
     timelineRef.current.on("rangechanged", handleRangeChanged);
 
+    const gestureScopeElement = timelineCanvasRef.current || timelineContainerRef.current;
+
+    const applyWindow = (startMs, endMs) => {
+      if (!timelineRef.current) return;
+      timelineRef.current.setWindow(new Date(startMs), new Date(endMs), { animation: false });
+      setTimelineWindow({ startMs, endMs });
+      setTimelineViewKey(null);
+    };
+
+    const handleWheelGesture = (event) => {
+      if (!timelineRef.current || !gestureScopeElement) return;
+
+      const targetElement = event.target instanceof Element ? event.target : null;
+      const isInsideVisTimeline = Boolean(targetElement?.closest(".vis-timeline"));
+      const shouldBlockBrowserGesture = event.ctrlKey || Math.abs(event.deltaX) > 0;
+
+      if (isInsideVisTimeline) {
+        if (shouldBlockBrowserGesture) {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      const activeWindow = timelineRef.current.getWindow();
+      const currentStartMs = activeWindow.start.getTime();
+      const currentEndMs = activeWindow.end.getTime();
+      const currentRangeMs = currentEndMs - currentStartMs;
+      if (!Number.isFinite(currentRangeMs) || currentRangeMs <= 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const scopeRect = gestureScopeElement.getBoundingClientRect();
+      const scopeWidth = scopeRect.width || gestureScopeElement.clientWidth || 1;
+      const pointerRatio = clamp((event.clientX - scopeRect.left) / scopeWidth, 0, 1);
+
+      if (event.ctrlKey) {
+        const zoomFactor = Math.exp(event.deltaY * 0.0015);
+        const nextRangeMs = clamp(
+          currentRangeMs * zoomFactor,
+          TIMELINE_ZOOM_MIN_MS,
+          TIMELINE_ZOOM_MAX_MS
+        );
+        const pointerTime = currentStartMs + currentRangeMs * pointerRatio;
+        const nextStartMs = pointerTime - nextRangeMs * pointerRatio;
+        const nextEndMs = nextStartMs + nextRangeMs;
+        event.preventDefault();
+        applyWindow(nextStartMs, nextEndMs);
+        return;
+      }
+
+      const horizontalDeltaPx = Math.abs(event.deltaX) > 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+      if (horizontalDeltaPx === 0) return;
+
+      const panRatioPerPixel = currentRangeMs / scopeWidth;
+      const panMs = horizontalDeltaPx * panRatioPerPixel;
+      event.preventDefault();
+      applyWindow(currentStartMs + panMs, currentEndMs + panMs);
+    };
+
+    const handleTouchMove = (event) => {
+      event.preventDefault();
+    };
+
+    const handleGestureEvent = (event) => {
+      event.preventDefault();
+    };
+
     const handlePointerMove = (event) => {
       mousePositionRef.current = {
         x: event.clientX,
         y: event.clientY
       };
     };
-    timelineContainerRef.current.addEventListener("mousemove", handlePointerMove);
+    gestureScopeElement?.addEventListener("mousemove", handlePointerMove);
+    gestureScopeElement?.addEventListener("wheel", handleWheelGesture, { passive: false });
+    gestureScopeElement?.addEventListener("touchmove", handleTouchMove, { passive: false });
+    gestureScopeElement?.addEventListener("gesturestart", handleGestureEvent, { passive: false });
+    gestureScopeElement?.addEventListener("gesturechange", handleGestureEvent, { passive: false });
+    gestureScopeElement?.addEventListener("gestureend", handleGestureEvent, { passive: false });
 
     return () => {
       clearHoverTimer();
@@ -522,7 +600,12 @@ export default function App() {
       timelineRef.current?.off("itemover", handleItemOver);
       timelineRef.current?.off("itemout", handleItemOut);
       timelineRef.current?.off("rangechanged", handleRangeChanged);
-      timelineContainerRef.current?.removeEventListener("mousemove", handlePointerMove);
+      gestureScopeElement?.removeEventListener("mousemove", handlePointerMove);
+      gestureScopeElement?.removeEventListener("wheel", handleWheelGesture);
+      gestureScopeElement?.removeEventListener("touchmove", handleTouchMove);
+      gestureScopeElement?.removeEventListener("gesturestart", handleGestureEvent);
+      gestureScopeElement?.removeEventListener("gesturechange", handleGestureEvent);
+      gestureScopeElement?.removeEventListener("gestureend", handleGestureEvent);
       timelineRef.current?.destroy();
       timelineRef.current = null;
     };
@@ -943,6 +1026,7 @@ export default function App() {
         hasGoToMarker={Boolean(goToDate) && goToMarkerLeft !== null}
         goToMarkerLeft={goToMarkerLeft}
         onClearGoTo={onClearGoTo}
+        timelineCanvasRef={timelineCanvasRef}
         timelineContainerRef={timelineContainerRef}
       />
 
