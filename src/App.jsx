@@ -17,6 +17,7 @@ import {
   saveLogs,
   toTextLog
 } from "./Logs";
+import { TIMELINE_ZOOM_MAX_MS, TIMELINE_ZOOM_MIN_MS } from "./Validations";
 
 const STORAGE_KEY = "personalGanttPlannerTasks";
 const DURATION_OPTIONS = [
@@ -25,6 +26,14 @@ const DURATION_OPTIONS = [
   { label: "4M", months: 4 },
   { label: "6M", months: 6 },
   { label: "1Y", months: 12 }
+];
+const TIMELINE_RANGE_OPTIONS = [
+  { label: "1M", months: 1 },
+  { label: "3M", months: 3 },
+  { label: "4M", months: 4 },
+  { label: "6M", months: 6 },
+  { label: "1Y", months: 12 },
+  { label: "5Y", months: 60 }
 ];
 const HOVER_OPEN_DELAY_MS = 1000;
 const POPOVER_WIDTH = 320;
@@ -57,6 +66,20 @@ function addMonthsToISODate(isoDate, monthsToAdd) {
   const clampedDay = Math.min(day, lastDayOfTargetMonth);
   const targetDate = new Date(year, month, clampedDay);
   return dateToLocalISO(targetDate);
+}
+
+function addMonthsToDate(dateValue, monthsToAdd) {
+  const date = new Date(dateValue);
+  const year = date.getFullYear();
+  const month = date.getMonth() + monthsToAdd;
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = date.getSeconds();
+  const milliseconds = date.getMilliseconds();
+  const lastDayOfTargetMonth = new Date(year, month + 1, 0).getDate();
+  const clampedDay = Math.min(day, lastDayOfTargetMonth);
+  return new Date(year, month, clampedDay, hours, minutes, seconds, milliseconds);
 }
 
 function isValidTask(task) {
@@ -142,6 +165,7 @@ export default function App() {
   const [logs, setLogs] = useState(loadLogs);
   const [loggingEnabled, setLoggingEnabled] = useState(loadLoggingEnabled);
   const [showLogs, setShowLogs] = useState(false);
+  const [timelineRangeMonths, setTimelineRangeMonths] = useState(12);
   const [form, setForm] = useState(() => createEmptyForm(taskPalette[0]));
   const [popover, setPopover] = useState({
     visible: false,
@@ -279,9 +303,36 @@ export default function App() {
     timelineRef.current = new Timeline(timelineContainerRef.current, [], {
       stack: true,
       groupOrder: "order",
+      showCurrentTime: true,
+      zoomMin: TIMELINE_ZOOM_MIN_MS,
+      zoomMax: TIMELINE_ZOOM_MAX_MS,
       orientation: {
         axis: "top",
         item: "bottom"
+      },
+      format: {
+        minorLabels: {
+          millisecond: "",
+          second: "",
+          minute: "",
+          hour: "",
+          weekday: "D",
+          day: "D",
+          week: "w",
+          month: "MMM",
+          year: "YYYY"
+        },
+        majorLabels: {
+          millisecond: "",
+          second: "",
+          minute: "",
+          hour: "",
+          weekday: "MMM YYYY",
+          day: "MMM YYYY",
+          week: "MMM YYYY",
+          month: "YYYY",
+          year: ""
+        }
       },
       horizontalScroll: true,
       verticalScroll: true,
@@ -345,8 +396,15 @@ export default function App() {
       }, 160);
     };
 
+    const handleRangeChanged = (properties) => {
+      if (properties?.byUser) {
+        setTimelineRangeMonths(null);
+      }
+    };
+
     timelineRef.current.on("itemover", handleItemOver);
     timelineRef.current.on("itemout", handleItemOut);
+    timelineRef.current.on("rangechanged", handleRangeChanged);
 
     const handlePointerMove = (event) => {
       mousePositionRef.current = {
@@ -361,6 +419,7 @@ export default function App() {
       clearCloseTimer();
       timelineRef.current?.off("itemover", handleItemOver);
       timelineRef.current?.off("itemout", handleItemOut);
+      timelineRef.current?.off("rangechanged", handleRangeChanged);
       timelineContainerRef.current?.removeEventListener("mousemove", handlePointerMove);
       timelineRef.current?.destroy();
       timelineRef.current = null;
@@ -378,17 +437,17 @@ export default function App() {
     timelineRef.current.setGroups(groups);
     timelineRef.current.setItems(items);
 
-    if (items.length > 0) {
-      const starts = items.map((item) => item.start.getTime());
-      const ends = items.map((item) => item.end.getTime());
-      const min = addDays(new Date(Math.min(...starts)), -7);
-      const max = addDays(new Date(Math.max(...ends)), 7);
-      timelineRef.current.setWindow(min, max, { animation: false });
-    } else {
-      const now = new Date();
-      timelineRef.current.setWindow(addDays(now, -15), addDays(now, 45), { animation: false });
+    if (timelineRangeMonths === null) {
+      return;
     }
-  }, [tasks, taskPalette]);
+
+    if (timelineRangeMonths) {
+      const now = new Date();
+      const rightBound = addMonthsToDate(now, timelineRangeMonths);
+      timelineRef.current.setWindow(now, rightBound, { animation: false });
+      return;
+    }
+  }, [tasks, taskPalette, timelineRangeMonths]);
 
   useEffect(() => {
     if (!popover.visible || !popover.taskId) return;
@@ -571,6 +630,10 @@ export default function App() {
     setThemeKey((currentThemeKey) => getNextThemeKey(currentThemeKey));
   }
 
+  function onSelectTimelineRange(months) {
+    setTimelineRangeMonths(months);
+  }
+
   return (
     <div className="app-shell">
       <div className="control-dock">
@@ -668,7 +731,21 @@ export default function App() {
 
       <main className="right-panel">
         <div className="timeline-header">
-          <h2>Timeline</h2>
+          <div className="timeline-header-top">
+            <h2>Timeline</h2>
+            <div className="timeline-range-buttons">
+              {TIMELINE_RANGE_OPTIONS.map((option) => (
+                <button
+                  key={`range-${option.label}`}
+                  type="button"
+                  className={`timeline-range-btn ${timelineRangeMonths === option.months ? "active" : ""}`}
+                  onClick={() => onSelectTimelineRange(option.months)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <p>Hover a task for a second to open details.</p>
         </div>
         <div className="timeline-frame">

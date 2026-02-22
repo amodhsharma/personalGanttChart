@@ -355,9 +355,39 @@ button.danger {
   background: var(--timeline-header-bg);
 }
 
+.timeline-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .timeline-header h2 {
   margin: 0;
   font-size: 1.05rem;
+}
+
+.timeline-range-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.timeline-range-btn {
+  background: var(--panel-bg);
+  color: var(--text-label);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.timeline-range-btn.active {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border-color: var(--btn-primary-bg);
 }
 
 .timeline-header p {
@@ -432,6 +462,15 @@ button.danger {
   }
 
   .logs-head-actions {
+    justify-content: flex-start;
+  }
+
+  .timeline-header-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .timeline-range-buttons {
     justify-content: flex-start;
   }
 }
