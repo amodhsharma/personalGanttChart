@@ -20,14 +20,14 @@
   font-size: 0.92rem;
 }
 
-.task-form {
+.event-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-top: 20px;
 }
 
-.task-form label {
+.event-form label {
   display: grid;
   gap: 6px;
   font-size: 0.9rem;
@@ -54,8 +54,8 @@
   gap: 6px;
 }
 
-.task-form input[type="text"],
-.task-form input[type="date"] {
+.event-form input[type="text"],
+.event-form input[type="date"] {
   width: 100%;
   border: 1px solid var(--input-border);
   border-radius: 8px;

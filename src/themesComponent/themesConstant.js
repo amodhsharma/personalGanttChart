@@ -1,6 +1,6 @@
 export const THEME_STORAGE_KEY = "personalGanttPlannerTheme";
 
-export const TASK_PASTEL_COLORS = ["#bfd8e6", "#c8e7cc", "#f4ddc8", "#f1d2d2", "#d8d0e8", "#f1e8cf"];
+export const EVENT_PASTEL_COLORS = ["#bfd8e6", "#c8e7cc", "#f4ddc8", "#f1d2d2", "#d8d0e8", "#f1e8cf"];
 
 export const THEME_LABELS = {
   theme1: "Theme 1",

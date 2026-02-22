@@ -11,7 +11,7 @@ export default function LeftPanel({
   todayISO,
   activeThemeName,
   showTrash,
-  trashedTasks,
+  trashedEvents,
   showLogs,
   logs,
   logsText,
@@ -27,8 +27,8 @@ export default function LeftPanel({
   onCycleTheme,
   onToggleTrash,
   onCloseTrash,
-  onRestoreTrashTask,
-  onDeleteTrashTaskPermanently,
+  onRestoreTrashEvent,
+  onDeleteTrashEventPermanently,
   onClearTrash,
   onToggleLogs,
   onCloseLogs,
@@ -39,15 +39,15 @@ export default function LeftPanel({
     <>
       <aside className="left-panel">
         <h1>Personal Gantt Planner</h1>
-        <p className="subtle">Plan tasks over weeks, months, and years.</p>
+        <p className="subtle">Plan events over weeks, months, and years.</p>
 
-        <form className="task-form" onSubmit={onSubmit}>
+        <form className="event-form" onSubmit={onSubmit}>
           <label>
-            Task Title
+            Event Title
             <input
               type="text"
               name="title"
-              placeholder="Add a task to add it to Timeline"
+              placeholder="Add a event to add it to Timeline"
               value={form.title}
               onChange={onChangeField}
               required
@@ -149,7 +149,7 @@ export default function LeftPanel({
           </div>
 
           <div className="form-actions">
-            <button type="submit">Add Task</button>
+            <button type="submit">Add Event</button>
             <button type="button" className="secondary" onClick={onResetForm}>
               Clear
             </button>
@@ -165,7 +165,7 @@ export default function LeftPanel({
               Logs
             </button>
             <button type="button" className="trash-button secondary" onClick={onToggleTrash}>
-              Trash ({trashedTasks.length})
+              Trash ({trashedEvents.length})
             </button>
           </div>
         </div>
@@ -173,10 +173,10 @@ export default function LeftPanel({
 
       <DeletePage
         showTrash={showTrash}
-        trashedTasks={trashedTasks}
+        trashedEvents={trashedEvents}
         onClose={onCloseTrash}
-        onRestoreTask={onRestoreTrashTask}
-        onDeleteTaskPermanently={onDeleteTrashTaskPermanently}
+        onRestoreEvent={onRestoreTrashEvent}
+        onDeleteEventPermanently={onDeleteTrashEventPermanently}
         onClearTrash={onClearTrash}
       />
 

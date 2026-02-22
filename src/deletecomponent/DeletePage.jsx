@@ -3,10 +3,10 @@ import { formatDeletedAt, formatIsoToDdMmYyyy } from "./deleteLogic";
 
 export default function DeletePage({
   showTrash,
-  trashedTasks,
+  trashedEvents,
   onClose,
-  onRestoreTask,
-  onDeleteTaskPermanently,
+  onRestoreEvent,
+  onDeleteEventPermanently,
   onClearTrash
 }) {
   if (!showTrash) return null;
@@ -23,32 +23,32 @@ export default function DeletePage({
             type="button"
             className="confirm-delete-btn"
             onClick={onClearTrash}
-            disabled={trashedTasks.length === 0}
+            disabled={trashedEvents.length === 0}
           >
             Empty Trash
           </button>
         </div>
       </div>
 
-      <p className="trash-subtle">Restore tasks or permanently delete them.</p>
+      <p className="trash-subtle">Restore events or permanently delete them.</p>
 
       <div className="trash-list">
-        {trashedTasks.length === 0 ? <p className="trash-empty">Trash is empty.</p> : null}
+        {trashedEvents.length === 0 ? <p className="trash-empty">Trash is empty.</p> : null}
 
-        {trashedTasks.map((task) => (
-          <article key={`trash-${task.id}`} className="trash-item">
+        {trashedEvents.map((event) => (
+          <article key={`trash-${event.id}`} className="trash-item">
             <div className="trash-item-main">
-              <h4>{task.title}</h4>
+              <h4>{event.title}</h4>
               <p>
-                {formatIsoToDdMmYyyy(task.startDate)} to {formatIsoToDdMmYyyy(task.endDate)}
+                {formatIsoToDdMmYyyy(event.startDate)} to {formatIsoToDdMmYyyy(event.endDate)}
               </p>
-              <p className="trash-time">Deleted: {formatDeletedAt(task.deletedAt)}</p>
+              <p className="trash-time">Deleted: {formatDeletedAt(event.deletedAt)}</p>
             </div>
             <div className="trash-item-actions">
-              <button type="button" className="secondary" onClick={() => onRestoreTask(task.id)}>
+              <button type="button" className="secondary" onClick={() => onRestoreEvent(event.id)}>
                 Restore
               </button>
-              <button type="button" className="danger" onClick={() => onDeleteTaskPermanently(task.id)}>
+              <button type="button" className="danger" onClick={() => onDeleteEventPermanently(event.id)}>
                 Delete Permanently
               </button>
             </div>

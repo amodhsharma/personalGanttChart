@@ -30,7 +30,7 @@ export default function RightPanel({
             <GoToComponent {...goToControls} />
           </div>
         </div>
-        <p>Hover a task for a second to open details.</p>
+        <p>Hover a event for a second to open details.</p>
       </div>
       <div className="timeline-frame">
         <div ref={timelineCanvasRef} className="timeline-canvas">

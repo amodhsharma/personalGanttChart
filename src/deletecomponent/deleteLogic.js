@@ -1,48 +1,48 @@
-export const TRASH_STORAGE_KEY = "personalGanttPlannerTrashTasks";
+export const TRASH_STORAGE_KEY = "personalGanttPlannerTrashEvents";
 
-export function isValidTrashTask(task) {
-  if (!task || typeof task !== "object") return false;
-  if (!task.id || !task.title || !task.startDate || !task.endDate) return false;
-  if (task.endDate < task.startDate) return false;
-  if (!task.deletedAt || typeof task.deletedAt !== "string") return false;
-  return !Number.isNaN(new Date(task.deletedAt).getTime());
+export function isValidTrashEvent(event) {
+  if (!event || typeof event !== "object") return false;
+  if (!event.id || !event.title || !event.startDate || !event.endDate) return false;
+  if (event.endDate < event.startDate) return false;
+  if (!event.deletedAt || typeof event.deletedAt !== "string") return false;
+  return !Number.isNaN(new Date(event.deletedAt).getTime());
 }
 
-export function loadTrashTasks() {
+export function loadTrashEvents() {
   try {
     const raw = localStorage.getItem(TRASH_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidTrashTask);
+    return parsed.filter(isValidTrashEvent);
   } catch {
     return [];
   }
 }
 
-export function createTrashedTask(task) {
+export function createTrashedEvent(event) {
   return {
-    ...task,
+    ...event,
     deletedAt: new Date().toISOString()
   };
 }
 
-export function upsertTrashTask(previousTrash, trashedTask) {
-  return [trashedTask, ...previousTrash.filter((entry) => entry.id !== trashedTask.id)];
+export function upsertTrashEvent(previousTrash, trashedEvent) {
+  return [trashedEvent, ...previousTrash.filter((entry) => entry.id !== trashedEvent.id)];
 }
 
-export function restoreTaskFromTrash(trashedTask) {
+export function restoreEventFromTrash(trashedEvent) {
   return {
-    id: trashedTask.id,
-    title: trashedTask.title,
-    startDate: trashedTask.startDate,
-    endDate: trashedTask.endDate,
-    color: trashedTask.color
+    id: trashedEvent.id,
+    title: trashedEvent.title,
+    startDate: trashedEvent.startDate,
+    endDate: trashedEvent.endDate,
+    color: trashedEvent.color
   };
 }
 
-export function removeTrashTaskById(previousTrash, taskId) {
-  return previousTrash.filter((task) => task.id !== taskId);
+export function removeTrashEventById(previousTrash, eventId) {
+  return previousTrash.filter((event) => event.id !== eventId);
 }
 
 export function formatIsoToDdMmYyyy(isoDate) {

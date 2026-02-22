@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Timeline } from "vis-timeline/standalone";
 import "vis-timeline/styles/vis-timeline-graph2d.min.css";
 import {
-  TASK_PASTEL_COLORS,
+  EVENT_PASTEL_COLORS,
   getTheme,
   THEME_STORAGE_KEY,
   getNextThemeKey,
@@ -26,17 +26,17 @@ import {
 } from "./Validations";
 import {
   TRASH_STORAGE_KEY,
-  createTrashedTask,
-  loadTrashTasks,
-  removeTrashTaskById,
-  restoreTaskFromTrash,
-  upsertTrashTask
+  createTrashedEvent,
+  loadTrashEvents,
+  removeTrashEventById,
+  restoreEventFromTrash,
+  upsertTrashEvent
 } from "./deletecomponent/deleteLogic";
 import { useGoToLogic } from "./goToComponent/goToLogic";
 import LeftPanel from "./LeftPanelComponent/LeftPanel";
 import RightPanel from "./RightPanelComponent/RightPanel";
 
-const STORAGE_KEY = "personalGanttPlannerTasks";
+const STORAGE_KEY = "personalGanttPlannerEvents";
 const TAG_MATTE_COLORS = ["#bfd8e6", "#c8e7cc", "#f4ddc8", "#f1d2d2", "#d8d0e8", "#f1e8cf"];
 const DURATION_OPTIONS = [
   { label: "1M", months: 1 },
@@ -194,16 +194,16 @@ function buildTimelineAxisGradient(rangeStart, rangeEnd, themeVars) {
   return `linear-gradient(to right, ${stops.join(", ")})`;
 }
 
-function buildMonthBandCoverageRange(tasks, currentWindow) {
+function buildMonthBandCoverageRange(events, currentWindow) {
   const now = new Date();
   let minMs = now.getTime();
   let maxMs = now.getTime();
 
-  tasks.forEach((task) => {
-    const taskStartMs = new Date(`${task.startDate}T00:00:00`).getTime();
-    const taskEndMs = addDays(new Date(`${task.endDate}T00:00:00`), 1).getTime();
-    if (Number.isFinite(taskStartMs)) minMs = Math.min(minMs, taskStartMs);
-    if (Number.isFinite(taskEndMs)) maxMs = Math.max(maxMs, taskEndMs);
+  events.forEach((event) => {
+    const eventStartMs = new Date(`${event.startDate}T00:00:00`).getTime();
+    const eventEndMs = addDays(new Date(`${event.endDate}T00:00:00`), 1).getTime();
+    if (Number.isFinite(eventStartMs)) minMs = Math.min(minMs, eventStartMs);
+    if (Number.isFinite(eventEndMs)) maxMs = Math.max(maxMs, eventEndMs);
   });
 
   if (currentWindow?.start instanceof Date && currentWindow?.end instanceof Date) {
@@ -216,19 +216,19 @@ function buildMonthBandCoverageRange(tasks, currentWindow) {
   return { coverStart, coverEnd };
 }
 
-function isValidTask(task) {
-  if (!task || typeof task !== "object") return false;
-  if (!task.id || !task.title || !task.startDate || !task.endDate) return false;
-  return task.endDate >= task.startDate;
+function isValidEvent(event) {
+  if (!event || typeof event !== "object") return false;
+  if (!event.id || !event.title || !event.startDate || !event.endDate) return false;
+  return event.endDate >= event.startDate;
 }
 
-function loadTasks() {
+function loadEvents() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidTask);
+    return parsed.filter(isValidEvent);
   } catch {
     return [];
   }
@@ -245,15 +245,15 @@ function createEmptyForm(defaultColor, defaultTagColor = "") {
   };
 }
 
-function buildKnownTags(tasks) {
+function buildKnownTags(events) {
   const byKey = new Map();
-  tasks.forEach((task) => {
-    const rawTagName = typeof task.tagName === "string" ? task.tagName.trim() : "";
+  events.forEach((event) => {
+    const rawTagName = typeof event.tagName === "string" ? event.tagName.trim() : "";
     if (!rawTagName) return;
     const key = rawTagName.toLowerCase();
     byKey.set(key, {
       name: rawTagName,
-      color: task.tagColor || "#9ca3af"
+      color: event.tagColor || "#9ca3af"
     });
   });
   return Array.from(byKey.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -300,41 +300,41 @@ function getDarkerBorderColor(baseColor, amount = 0.24) {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-function taskToTimelineItem(task, fallbackColor) {
-  const start = new Date(`${task.startDate}T00:00:00`);
-  const endInclusive = new Date(`${task.endDate}T00:00:00`);
+function eventToTimelineItem(event, fallbackColor) {
+  const start = new Date(`${event.startDate}T00:00:00`);
+  const endInclusive = new Date(`${event.endDate}T00:00:00`);
   const endExclusive = addDays(endInclusive, 1);
-  const taskColor = task.color || fallbackColor;
-  const borderColor = getDarkerBorderColor(taskColor);
-  const textColor = getReadableTextColor(taskColor);
+  const eventColor = event.color || fallbackColor;
+  const borderColor = getDarkerBorderColor(eventColor);
+  const textColor = getReadableTextColor(eventColor);
   return {
-    id: task.id,
-    group: task.id,
-    content: task.title,
+    id: event.id,
+    group: event.id,
+    content: event.title,
     start,
     end: endExclusive,
-    style: `background: ${taskColor}; border-color: ${borderColor}; border-width: 2px; color: ${textColor};`
+    style: `background: ${eventColor}; border-color: ${borderColor}; border-width: 2px; color: ${textColor};`
   };
 }
 
 export default function App() {
   const [themeKey, setThemeKey] = useState(loadStoredThemeKey);
   const activeTheme = getTheme(themeKey);
-  const taskPalette = TASK_PASTEL_COLORS;
+  const eventPalette = EVENT_PASTEL_COLORS;
   const tagPaletteColors = TAG_MATTE_COLORS;
   const todayISO = dateToLocalISO(new Date());
 
-  const [tasks, setTasks] = useState(loadTasks);
-  const [trashedTasks, setTrashedTasks] = useState(loadTrashTasks);
+  const [events, setEvents] = useState(loadEvents);
+  const [trashedEvents, setTrashedEvents] = useState(loadTrashEvents);
   const [logs, setLogs] = useState(loadLogs);
   const [loggingEnabled, setLoggingEnabled] = useState(loadLoggingEnabled);
   const [showTrash, setShowTrash] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [timelineViewKey, setTimelineViewKey] = useState("default");
-  const [form, setForm] = useState(() => createEmptyForm(taskPalette[0]));
+  const [form, setForm] = useState(() => createEmptyForm(eventPalette[0]));
   const [popover, setPopover] = useState({
     visible: false,
-    taskId: null,
+    eventId: null,
     unlocked: false,
     deleteArmed: false,
     x: 0,
@@ -345,7 +345,7 @@ export default function App() {
   const timelineContainerRef = useRef(null);
   const timelineCanvasRef = useRef(null);
   const timelineRef = useRef(null);
-  const tasksRef = useRef(tasks);
+  const eventsRef = useRef(events);
   const hoverTimerRef = useRef(null);
   const closeTimerRef = useRef(null);
   const popoverHoverRef = useRef(false);
@@ -369,7 +369,7 @@ export default function App() {
     setTimelineViewKey
   });
   const onGoToTimelineRangeChanged = goToControls.onTimelineRangeChanged;
-  const knownTags = useMemo(() => buildKnownTags(tasks), [tasks]);
+  const knownTags = useMemo(() => buildKnownTags(events), [events]);
   const tagSuggestions = useMemo(() => {
     const query = form.tagName.trim().toLowerCase();
     if (!query) return [];
@@ -407,16 +407,16 @@ export default function App() {
   }
 
   useEffect(() => {
-    tasksRef.current = tasks;
-  }, [tasks]);
+    eventsRef.current = events;
+  }, [events]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }, [tasks]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+  }, [events]);
 
   useEffect(() => {
-    localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(trashedTasks));
-  }, [trashedTasks]);
+    localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(trashedEvents));
+  }, [trashedEvents]);
 
   useEffect(() => {
     saveLogs(logs);
@@ -439,19 +439,19 @@ export default function App() {
 
   useEffect(() => {
     setForm((current) => {
-      const nextColor = taskPalette.includes(current.color) ? current.color : taskPalette[0];
+      const nextColor = eventPalette.includes(current.color) ? current.color : eventPalette[0];
       const nextTagColor = current.tagColor && tagPaletteColors.includes(current.tagColor) ? current.tagColor : "";
       if (nextColor === current.color && nextTagColor === current.tagColor) return current;
       return { ...current, color: nextColor, tagColor: nextTagColor };
     });
-  }, [tagPaletteColors, taskPalette]);
+  }, [tagPaletteColors, eventPalette]);
 
-  function appendLog(action, taskTitle) {
+  function appendLog(action, eventTitle) {
     setLogs((previous) =>
       appendLogLine(previous, {
         actorName: loadActorName(),
         action,
-        eventName: taskTitle,
+        eventName: eventTitle,
         enabled: loggingEnabled
       })
     );
@@ -492,31 +492,31 @@ export default function App() {
     setPopover((current) => ({
       ...current,
       visible: false,
-      taskId: null,
+      eventId: null,
       unlocked: false,
       deleteArmed: false,
       draft: null
     }));
   }
 
-  function openPopoverForTask(taskId, clientX, clientY) {
-    const task = tasksRef.current.find((entry) => String(entry.id) === String(taskId));
-    if (!task) return;
+  function openPopoverForEvent(eventId, clientX, clientY) {
+    const event = eventsRef.current.find((entry) => String(entry.id) === String(eventId));
+    if (!event) return;
     const position = getPopoverPosition(clientX, clientY);
     setPopover({
       visible: true,
-      taskId: task.id,
+      eventId: event.id,
       unlocked: false,
       deleteArmed: false,
       x: position.x,
       y: position.y,
       draft: {
-        title: task.title,
-        startDate: task.startDate,
-        endDate: task.endDate,
-        color: task.color || taskPalette[0],
-        tagName: task.tagName || "",
-        tagColor: task.tagColor || ""
+        title: event.title,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        color: event.color || eventPalette[0],
+        tagName: event.tagName || "",
+        tagColor: event.tagColor || ""
       }
     });
   }
@@ -579,19 +579,19 @@ export default function App() {
           callback(null);
           return;
         }
-        const movedTask = tasksRef.current.find((task) => String(task.id) === String(item.id));
-        if (movedTask) {
-          appendLog("modified", movedTask.title);
+        const movedEvent = eventsRef.current.find((event) => String(event.id) === String(item.id));
+        if (movedEvent) {
+          appendLog("modified", movedEvent.title);
         }
-        setTasks((previous) =>
-          previous.map((task) =>
-            task.id === item.id
+        setEvents((previous) =>
+          previous.map((event) =>
+            event.id === item.id
               ? {
-                  ...task,
+                  ...event,
                   startDate: movedStart,
                   endDate: movedEnd
                 }
-              : task
+              : event
           )
         );
         callback(item);
@@ -611,7 +611,7 @@ export default function App() {
         properties?.event?.clientY ??
         mousePositionRef.current.y;
       hoverTimerRef.current = window.setTimeout(() => {
-        openPopoverForTask(properties.item, clientX, clientY);
+        openPopoverForEvent(properties.item, clientX, clientY);
       }, HOVER_OPEN_DELAY_MS);
     };
 
@@ -744,23 +744,23 @@ export default function App() {
       timelineRef.current?.destroy();
       timelineRef.current = null;
     };
-  }, [onGoToTimelineRangeChanged, taskPalette]);
+  }, [onGoToTimelineRangeChanged, eventPalette]);
 
   useEffect(() => {
     if (!timelineRef.current) return;
-    const taskItems = tasks.map((task) => taskToTimelineItem(task, taskPalette[0]));
-    const groups = tasks.map((task, index) => ({
-      id: task.id,
+    const eventItems = events.map((event) => eventToTimelineItem(event, eventPalette[0]));
+    const groups = events.map((event, index) => ({
+      id: event.id,
       content: "",
       order: index
     }));
 
     if (timelineViewKey === null) {
       const currentWindow = timelineRef.current.getWindow();
-      const { coverStart, coverEnd } = buildMonthBandCoverageRange(tasks, currentWindow);
+      const { coverStart, coverEnd } = buildMonthBandCoverageRange(events, currentWindow);
       const monthBandItems = buildTimelineMonthBandItems(coverStart, coverEnd, activeTheme.cssVars);
       timelineRef.current.setGroups(groups);
-      timelineRef.current.setItems([...monthBandItems, ...taskItems]);
+      timelineRef.current.setItems([...monthBandItems, ...eventItems]);
       applyAxisGradientForWindow(currentWindow.start, currentWindow.end);
       return;
     }
@@ -776,29 +776,29 @@ export default function App() {
       timelineRef.current.setWindow(now, rightBound, { animation: false });
     }
     const currentWindow = timelineRef.current.getWindow();
-    const { coverStart, coverEnd } = buildMonthBandCoverageRange(tasks, currentWindow);
+    const { coverStart, coverEnd } = buildMonthBandCoverageRange(events, currentWindow);
     const monthBandItems = buildTimelineMonthBandItems(coverStart, coverEnd, activeTheme.cssVars);
     timelineRef.current.setGroups(groups);
-    timelineRef.current.setItems([...monthBandItems, ...taskItems]);
+    timelineRef.current.setItems([...monthBandItems, ...eventItems]);
     applyAxisGradientForWindow(currentWindow.start, currentWindow.end);
-  }, [themeKey, tasks, taskPalette, timelineViewKey]);
+  }, [themeKey, events, eventPalette, timelineViewKey]);
 
   useEffect(() => {
-    if (!popover.visible || !popover.taskId) return;
-    const task = tasks.find((entry) => entry.id === popover.taskId);
-    if (!task) {
+    if (!popover.visible || !popover.eventId) return;
+    const event = events.find((entry) => entry.id === popover.eventId);
+    if (!event) {
       closePopover();
       return;
     }
 
     if (!popover.unlocked) {
       const nextDraft = {
-        title: task.title,
-        startDate: task.startDate,
-        endDate: task.endDate,
-        color: task.color || taskPalette[0],
-        tagName: task.tagName || "",
-        tagColor: task.tagColor || ""
+        title: event.title,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        color: event.color || eventPalette[0],
+        tagName: event.tagName || "",
+        tagColor: event.tagColor || ""
       };
       const currentDraft = popover.draft;
       const changed =
@@ -813,7 +813,7 @@ export default function App() {
         setPopover((current) => ({ ...current, draft: nextDraft }));
       }
     }
-  }, [tasks, taskPalette, popover]);
+  }, [events, eventPalette, popover]);
 
   function onChangeField(event) {
     const { name, value } = event.target;
@@ -847,7 +847,7 @@ export default function App() {
   }
 
   function resetForm() {
-    setForm(createEmptyForm(taskPalette[0]));
+    setForm(createEmptyForm(eventPalette[0]));
     startDateInputRef.current?.setCustomValidity("");
     endDateInputRef.current?.setCustomValidity("");
     tagNameInputRef.current?.setCustomValidity("");
@@ -877,7 +877,7 @@ export default function App() {
       tagNameInputRef.current?.reportValidity();
       return;
     }
-    const nextTask = {
+    const nextEvent = {
       id: createId(),
       title: form.title.trim(),
       startDate: form.startDate,
@@ -886,8 +886,8 @@ export default function App() {
       tagName: trimmedTagName,
       tagColor: trimmedTagName ? form.tagColor : ""
     };
-    setTasks((previous) => [...previous, nextTask]);
-    appendLog("added", nextTask.title);
+    setEvents((previous) => [...previous, nextEvent]);
+    appendLog("added", nextEvent.title);
     resetForm();
   }
 
@@ -968,7 +968,7 @@ export default function App() {
   }
 
   function onSavePopoverChanges() {
-    if (!popover.draft || !popover.taskId) return;
+    if (!popover.draft || !popover.eventId) return;
 
     popoverTitleRef.current?.setCustomValidity("");
     popoverStartRef.current?.setCustomValidity("");
@@ -976,7 +976,7 @@ export default function App() {
     popoverTagRef.current?.setCustomValidity("");
 
     if (!popover.draft.title.trim()) {
-      popoverTitleRef.current?.setCustomValidity("Task title is required.");
+      popoverTitleRef.current?.setCustomValidity("Event title is required.");
       popoverTitleRef.current?.reportValidity();
       return;
     }
@@ -1006,12 +1006,12 @@ export default function App() {
       return;
     }
 
-    setTasks((previous) =>
-      previous.map((task) =>
-        task.id === popover.taskId
+    setEvents((previous) =>
+      previous.map((event) =>
+        event.id === popover.eventId
           ? (() => {
               return {
-                ...task,
+                ...event,
                 title: popover.draft.title.trim(),
                 startDate: popover.draft.startDate,
                 endDate: popover.draft.endDate,
@@ -1020,7 +1020,7 @@ export default function App() {
                 tagColor: trimmedTagName ? popover.draft.tagColor : ""
               };
             })()
-          : task
+          : event
       )
     );
     appendLog("modified", popover.draft.title);
@@ -1029,19 +1029,19 @@ export default function App() {
   }
 
   function onDeleteFromPopover() {
-    if (!popover.taskId) return;
+    if (!popover.eventId) return;
     if (!popover.deleteArmed) {
       setPopover((current) => ({ ...current, deleteArmed: true }));
       return;
     }
 
-    const task = tasksRef.current.find((entry) => entry.id === popover.taskId);
-    if (task) {
-      const trashedTask = createTrashedTask(task);
-      setTrashedTasks((previous) => upsertTrashTask(previous, trashedTask));
+    const event = eventsRef.current.find((entry) => entry.id === popover.eventId);
+    if (event) {
+      const trashedEvent = createTrashedEvent(event);
+      setTrashedEvents((previous) => upsertTrashEvent(previous, trashedEvent));
     }
-    setTasks((previous) => previous.filter((task) => task.id !== popover.taskId));
-    appendLog("deleted", task?.title || "");
+    setEvents((previous) => previous.filter((event) => event.id !== popover.eventId));
+    appendLog("deleted", event?.title || "");
     closePopover();
   }
 
@@ -1055,32 +1055,32 @@ export default function App() {
     });
   }
 
-  function onRestoreTrashTask(taskId) {
-    const taskToRestore = trashedTasks.find((task) => task.id === taskId);
-    if (!taskToRestore) return;
+  function onRestoreTrashEvent(eventId) {
+    const eventToRestore = trashedEvents.find((event) => event.id === eventId);
+    if (!eventToRestore) return;
 
-    const restoredTask = restoreTaskFromTrash(taskToRestore);
+    const restoredEvent = restoreEventFromTrash(eventToRestore);
 
-    setTasks((previous) => {
-      if (previous.some((task) => task.id === restoredTask.id)) {
-        return [...previous, { ...restoredTask, id: createId() }];
+    setEvents((previous) => {
+      if (previous.some((event) => event.id === restoredEvent.id)) {
+        return [...previous, { ...restoredEvent, id: createId() }];
       }
-      return [...previous, restoredTask];
+      return [...previous, restoredEvent];
     });
-    setTrashedTasks((previous) => removeTrashTaskById(previous, taskId));
-    appendLog("restored", restoredTask.title);
+    setTrashedEvents((previous) => removeTrashEventById(previous, eventId));
+    appendLog("restored", restoredEvent.title);
   }
 
-  function onDeleteTrashTaskPermanently(taskId) {
-    const taskToDelete = trashedTasks.find((task) => task.id === taskId);
-    setTrashedTasks((previous) => removeTrashTaskById(previous, taskId));
-    appendLog("permanently deleted", taskToDelete?.title || "");
+  function onDeleteTrashEventPermanently(eventId) {
+    const eventToDelete = trashedEvents.find((event) => event.id === eventId);
+    setTrashedEvents((previous) => removeTrashEventById(previous, eventId));
+    appendLog("permanently deleted", eventToDelete?.title || "");
   }
 
   function onClearTrash() {
-    if (trashedTasks.length === 0) return;
-    setTrashedTasks([]);
-    appendLog("cleared trash", "all deleted tasks");
+    if (trashedEvents.length === 0) return;
+    setTrashedEvents([]);
+    appendLog("cleared trash", "all deleted events");
   }
 
   function onCycleTheme() {
@@ -1103,7 +1103,7 @@ export default function App() {
         todayISO={todayISO}
         activeThemeName={activeTheme.name}
         showTrash={showTrash}
-        trashedTasks={trashedTasks}
+        trashedEvents={trashedEvents}
         showLogs={showLogs}
         logs={logs}
         logsText={toTextLog(logs)}
@@ -1119,8 +1119,8 @@ export default function App() {
         onCycleTheme={onCycleTheme}
         onToggleTrash={onToggleTrash}
         onCloseTrash={() => setShowTrash(false)}
-        onRestoreTrashTask={onRestoreTrashTask}
-        onDeleteTrashTaskPermanently={onDeleteTrashTaskPermanently}
+        onRestoreTrashEvent={onRestoreTrashEvent}
+        onDeleteTrashEventPermanently={onDeleteTrashEventPermanently}
         onClearTrash={onClearTrash}
         onToggleLogs={() =>
           setShowLogs((current) => {
@@ -1147,7 +1147,7 @@ export default function App() {
 
       {popover.visible && popover.draft ? (
         <section
-          className="task-popover"
+          className="event-popover"
           style={{ left: `${popover.x}px`, top: `${popover.y}px` }}
           onMouseEnter={() => {
             popoverHoverRef.current = true;
@@ -1160,9 +1160,9 @@ export default function App() {
             }
           }}
         >
-          <h3>Task Details</h3>
+          <h3>Event Details</h3>
           <label>
-            Task Title
+            Event Title
             <input
               ref={popoverTitleRef}
               type="text"

@@ -89,7 +89,7 @@ button.confirm-delete-btn {
   box-shadow: 0 0 0 2px var(--swatch-ring);
 }
 
-.task-popover {
+.event-popover {
   position: fixed;
   z-index: 30;
   width: 320px;
@@ -103,20 +103,20 @@ button.confirm-delete-btn {
   gap: 10px;
 }
 
-.task-popover h3 {
+.event-popover h3 {
   margin: 0;
   font-size: 0.96rem;
 }
 
-.task-popover label {
+.event-popover label {
   display: grid;
   gap: 6px;
   font-size: 0.86rem;
   color: var(--text-label);
 }
 
-.task-popover input[type="text"],
-.task-popover input[type="date"] {
+.event-popover input[type="text"],
+.event-popover input[type="date"] {
   width: 100%;
   border: 1px solid var(--input-border);
   border-radius: 8px;
@@ -125,7 +125,7 @@ button.confirm-delete-btn {
   color: var(--text-main);
 }
 
-.task-popover input:disabled {
+.event-popover input:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
