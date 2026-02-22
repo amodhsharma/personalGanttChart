@@ -273,6 +273,7 @@ export default function App() {
     visible: false,
     taskId: null,
     unlocked: false,
+    deleteArmed: false,
     x: 0,
     y: 0,
     draft: null
@@ -382,6 +383,7 @@ export default function App() {
       visible: false,
       taskId: null,
       unlocked: false,
+      deleteArmed: false,
       draft: null
     }));
   }
@@ -394,6 +396,7 @@ export default function App() {
       visible: true,
       taskId: task.id,
       unlocked: false,
+      deleteArmed: false,
       x: position.x,
       y: position.y,
       draft: {
@@ -794,6 +797,7 @@ export default function App() {
       if (!current.draft) return current;
       return {
         ...current,
+        deleteArmed: false,
         draft: { ...current.draft, [name]: value }
       };
     });
@@ -804,6 +808,7 @@ export default function App() {
       if (!current.draft) return current;
       return {
         ...current,
+        deleteArmed: false,
         draft: { ...current.draft, color }
       };
     });
@@ -812,6 +817,7 @@ export default function App() {
   function onTogglePopoverUnlock() {
     setPopover((current) => ({
       ...current,
+      deleteArmed: false,
       unlocked: !current.unlocked
     }));
   }
@@ -862,11 +868,16 @@ export default function App() {
     );
     appendLog("modified", popover.draft.title);
 
-    setPopover((current) => ({ ...current, unlocked: false }));
+    setPopover((current) => ({ ...current, unlocked: false, deleteArmed: false }));
   }
 
   function onDeleteFromPopover() {
     if (!popover.taskId) return;
+    if (!popover.deleteArmed) {
+      setPopover((current) => ({ ...current, deleteArmed: true }));
+      return;
+    }
+
     const task = tasksRef.current.find((entry) => entry.id === popover.taskId);
     if (task) {
       const trashedTask = {
@@ -1111,8 +1122,12 @@ export default function App() {
           </div>
 
           <div className="popover-actions">
-            <button type="button" className="danger" onClick={onDeleteFromPopover}>
-              Delete
+            <button
+              type="button"
+              className={popover.deleteArmed ? "confirm-delete-btn" : "secondary"}
+              onClick={onDeleteFromPopover}
+            >
+              {popover.deleteArmed ? "Confirm Delete" : "Delete"}
             </button>
             <button type="button" className="secondary" onClick={onTogglePopoverUnlock}>
               {popover.unlocked ? "Lock Editing" : "Unlock for Editing"}

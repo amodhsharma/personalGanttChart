@@ -40,7 +40,7 @@ export default function TrashPage({
           </button>
           <button
             type="button"
-            className="danger"
+            className="confirm-delete-btn"
             onClick={onClearTrash}
             disabled={trashedTasks.length === 0}
           >

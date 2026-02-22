@@ -71,6 +71,12 @@ button.danger {
   color: #ffffff;
 }
 
+button.confirm-delete-btn {
+  background: #d10000;
+  color: #ffffff;
+  border: 1px solid #9f0000;
+}
+
 .swatch {
   width: 24px;
   height: 24px;
