@@ -7,7 +7,7 @@ import {
   THEME_STORAGE_KEY,
   getNextThemeKey,
   loadStoredThemeKey
-} from "./themesLogic";
+} from "./themesComponent/themesLogic";
 import {
   appendLogLine,
   loadActorName,
@@ -16,8 +16,16 @@ import {
   saveLoggingEnabled,
   saveLogs,
   toTextLog
-} from "./Logs";
-import { TIMELINE_ZOOM_MAX_MS, TIMELINE_ZOOM_MIN_MS } from "./Validations";
+} from "./components/Logs";
+import {
+  END_DATE_IN_PAST_ERROR,
+  isIsoDateInPast,
+  TIMELINE_VIEW_OPTIONS,
+  TIMELINE_ZOOM_MAX_MS,
+  TIMELINE_ZOOM_MIN_MS
+} from "./Validations";
+import LeftPanel from "./LeftPanelComponent/LeftPanel";
+import RightPanel from "./RightPanelComponent/RightPanel";
 
 const STORAGE_KEY = "personalGanttPlannerTasks";
 const DURATION_OPTIONS = [
@@ -26,14 +34,6 @@ const DURATION_OPTIONS = [
   { label: "4M", months: 4 },
   { label: "6M", months: 6 },
   { label: "1Y", months: 12 }
-];
-const TIMELINE_RANGE_OPTIONS = [
-  { label: "1M", months: 1 },
-  { label: "3M", months: 3 },
-  { label: "4M", months: 4 },
-  { label: "6M", months: 6 },
-  { label: "1Y", months: 12 },
-  { label: "5Y", months: 60 }
 ];
 const HOVER_OPEN_DELAY_MS = 1000;
 const POPOVER_WIDTH = 320;
@@ -80,6 +80,63 @@ function addMonthsToDate(dateValue, monthsToAdd) {
   const lastDayOfTargetMonth = new Date(year, month + 1, 0).getDate();
   const clampedDay = Math.min(day, lastDayOfTargetMonth);
   return new Date(year, month, clampedDay, hours, minutes, seconds, milliseconds);
+}
+
+function mixRgb(baseColor, targetColor, ratio) {
+  return {
+    r: Math.round(baseColor.r + (targetColor.r - baseColor.r) * ratio),
+    g: Math.round(baseColor.g + (targetColor.g - baseColor.g) * ratio),
+    b: Math.round(baseColor.b + (targetColor.b - baseColor.b) * ratio)
+  };
+}
+
+function toRgba(color, alpha) {
+  return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+}
+
+function buildTimelineAxisGradient(windowStartMs, windowEndMs, themeVars) {
+  if (!windowStartMs || !windowEndMs || windowEndMs <= windowStartMs) return "none";
+  const totalRange = windowEndMs - windowStartMs;
+  const windowStart = new Date(windowStartMs);
+  const windowEnd = new Date(windowEndMs);
+
+  let cursor = new Date(windowStart.getFullYear(), windowStart.getMonth(), 1);
+  if (cursor.getTime() > windowStartMs) {
+    cursor = new Date(windowStart.getFullYear(), windowStart.getMonth() - 1, 1);
+  }
+
+  const stops = [];
+
+  while (cursor < windowEnd) {
+    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    const segmentStart = Math.max(monthStart.getTime(), windowStartMs);
+    const segmentEnd = Math.min(monthEnd.getTime(), windowEndMs);
+
+    if (segmentEnd > segmentStart) {
+      const left = ((segmentStart - windowStartMs) / totalRange) * 100;
+      const right = ((segmentEnd - windowStartMs) / totalRange) * 100;
+      const bandColor = (() => {
+        const fallbackPrimary = "#5b3676";
+        const fallbackSecondary = "#fc9398";
+        const primary =
+          hexToRgb(themeVars["--btn-primary-bg"] || fallbackPrimary) || hexToRgb(fallbackPrimary);
+        const secondary =
+          hexToRgb(themeVars["--btn-secondary-bg"] || fallbackSecondary) || hexToRgb(fallbackSecondary);
+        const base = monthStart.getFullYear() % 2 === 0 ? primary : secondary;
+        const lightTarget = monthStart.getMonth() % 2 === 0 ? { r: 255, g: 255, b: 255 } : { r: 244, g: 245, b: 247 };
+        const mixRatio = monthStart.getFullYear() % 2 === 0 ? 0.72 : 0.62;
+        const alpha = 0.5;
+        return toRgba(mixRgb(base, lightTarget, mixRatio), alpha);
+      })();
+      stops.push(`${bandColor} ${left.toFixed(3)}% ${right.toFixed(3)}%`);
+    }
+
+    cursor = monthEnd;
+  }
+
+  if (stops.length === 0) return "none";
+  return `linear-gradient(to right, ${stops.join(", ")})`;
 }
 
 function isValidTask(task) {
@@ -160,12 +217,14 @@ export default function App() {
   const [themeKey, setThemeKey] = useState(loadStoredThemeKey);
   const activeTheme = getTheme(themeKey);
   const taskPalette = TASK_PASTEL_COLORS;
+  const todayISO = dateToLocalISO(new Date());
 
   const [tasks, setTasks] = useState(loadTasks);
   const [logs, setLogs] = useState(loadLogs);
   const [loggingEnabled, setLoggingEnabled] = useState(loadLoggingEnabled);
   const [showLogs, setShowLogs] = useState(false);
-  const [timelineRangeMonths, setTimelineRangeMonths] = useState(12);
+  const [timelineViewKey, setTimelineViewKey] = useState("default");
+  const [timelineWindow, setTimelineWindow] = useState(null);
   const [form, setForm] = useState(() => createEmptyForm(taskPalette[0]));
   const [popover, setPopover] = useState({
     visible: false,
@@ -350,6 +409,11 @@ export default function App() {
       onMove: (item, callback) => {
         const movedStart = dateToLocalISO(item.start);
         const movedEnd = item.end ? dateToLocalISO(addDays(item.end, -1)) : movedStart;
+        if (isIsoDateInPast(movedEnd)) {
+          window.alert(END_DATE_IN_PAST_ERROR);
+          callback(null);
+          return;
+        }
         const movedTask = tasksRef.current.find((task) => String(task.id) === String(item.id));
         if (movedTask) {
           appendLog("modified", movedTask.title);
@@ -397,8 +461,13 @@ export default function App() {
     };
 
     const handleRangeChanged = (properties) => {
+      const startMs = properties?.start ? new Date(properties.start).getTime() : null;
+      const endMs = properties?.end ? new Date(properties.end).getTime() : null;
+      if (startMs && endMs) {
+        setTimelineWindow({ startMs, endMs });
+      }
       if (properties?.byUser) {
-        setTimelineRangeMonths(null);
+        setTimelineViewKey(null);
       }
     };
 
@@ -437,17 +506,22 @@ export default function App() {
     timelineRef.current.setGroups(groups);
     timelineRef.current.setItems(items);
 
-    if (timelineRangeMonths === null) {
+    if (timelineViewKey === null) {
       return;
     }
 
-    if (timelineRangeMonths) {
-      const now = new Date();
-      const rightBound = addMonthsToDate(now, timelineRangeMonths);
-      timelineRef.current.setWindow(now, rightBound, { animation: false });
+    const selectedView = TIMELINE_VIEW_OPTIONS.find((entry) => entry.key === timelineViewKey);
+    if (!selectedView) {
       return;
     }
-  }, [tasks, taskPalette, timelineRangeMonths]);
+
+    if (selectedView.type === "default" || selectedView.type === "range") {
+      const now = new Date();
+      const rightBound = addMonthsToDate(now, selectedView.months || 1);
+      timelineRef.current.setWindow(now, rightBound, { animation: false });
+      setTimelineWindow({ startMs: now.getTime(), endMs: rightBound.getTime() });
+    }
+  }, [tasks, taskPalette, timelineViewKey]);
 
   useEffect(() => {
     if (!popover.visible || !popover.taskId) return;
@@ -477,6 +551,17 @@ export default function App() {
     }
   }, [tasks, taskPalette, popover]);
 
+  useEffect(() => {
+    if (!timelineContainerRef.current) return;
+    if (!timelineWindow) {
+      timelineContainerRef.current.style.removeProperty("--axis-month-gradient");
+      return;
+    }
+
+    const gradient = buildTimelineAxisGradient(timelineWindow.startMs, timelineWindow.endMs, activeTheme.cssVars);
+    timelineContainerRef.current.style.setProperty("--axis-month-gradient", gradient);
+  }, [timelineWindow, activeTheme]);
+
   function onChangeField(event) {
     const { name, value } = event.target;
     event.target.setCustomValidity("");
@@ -496,6 +581,12 @@ export default function App() {
     event.preventDefault();
     startDateInputRef.current?.setCustomValidity("");
     endDateInputRef.current?.setCustomValidity("");
+
+    if (isIsoDateInPast(form.endDate)) {
+      endDateInputRef.current?.setCustomValidity(END_DATE_IN_PAST_ERROR);
+      endDateInputRef.current?.reportValidity();
+      return;
+    }
 
     if (form.endDate < form.startDate) {
       endDateInputRef.current?.setCustomValidity("End date cannot be before start date.");
@@ -594,6 +685,12 @@ export default function App() {
       return;
     }
 
+    if (isIsoDateInPast(popover.draft.endDate)) {
+      popoverEndRef.current?.setCustomValidity(END_DATE_IN_PAST_ERROR);
+      popoverEndRef.current?.reportValidity();
+      return;
+    }
+
     if (popover.draft.endDate < popover.draft.startDate) {
       popoverEndRef.current?.setCustomValidity("End date cannot be before start date.");
       popoverEndRef.current?.reportValidity();
@@ -630,128 +727,43 @@ export default function App() {
     setThemeKey((currentThemeKey) => getNextThemeKey(currentThemeKey));
   }
 
-  function onSelectTimelineRange(months) {
-    setTimelineRangeMonths(months);
+  function onSelectTimelineView(viewKey) {
+    setTimelineViewKey(viewKey);
   }
 
   return (
     <div className="app-shell">
-      <div className="control-dock">
-        <button type="button" className="theme-button" onClick={onCycleTheme}>
-          {activeTheme.name}
-        </button>
-        <button type="button" className="logs-button secondary" onClick={() => setShowLogs((current) => !current)}>
-          Logs
-        </button>
-      </div>
-      <aside className="left-panel">
-        <h1>Personal Gantt Planner</h1>
-        <p className="subtle">Plan tasks over weeks, months, and years.</p>
+      <LeftPanel
+        form={form}
+        startDateInputRef={startDateInputRef}
+        endDateInputRef={endDateInputRef}
+        taskPalette={taskPalette}
+        durationOptions={DURATION_OPTIONS}
+        todayISO={todayISO}
+        activeThemeName={activeTheme.name}
+        showLogs={showLogs}
+        logs={logs}
+        logsText={toTextLog(logs)}
+        loggingEnabled={loggingEnabled}
+        onChangeField={onChangeField}
+        onSubmit={onSubmit}
+        onSetToday={onSetToday}
+        onApplyDuration={onApplyDuration}
+        onPickColor={onPickColor}
+        onResetForm={resetForm}
+        onCycleTheme={onCycleTheme}
+        onToggleLogs={() => setShowLogs((current) => !current)}
+        onCloseLogs={() => setShowLogs(false)}
+        onClearLogs={() => setLogs([])}
+        onToggleLogging={() => setLoggingEnabled((current) => !current)}
+      />
 
-        <form className="task-form" onSubmit={onSubmit}>
-          <label>
-            Task Title
-            <input
-              type="text"
-              name="title"
-              placeholder="Add a task to add it to Timeline"
-              value={form.title}
-              onChange={onChangeField}
-              required
-            />
-          </label>
-
-          <div className="date-range-row">
-            <label className="date-field">
-              Start Date
-              <div className="start-with-today">
-                <input
-                  ref={startDateInputRef}
-                  type="date"
-                  name="startDate"
-                  value={form.startDate}
-                  onChange={onChangeField}
-                  placeholder="dd/mm/yyyy"
-                  required
-                />
-                <button type="button" className="secondary today-btn" onClick={onSetToday}>
-                  Today
-                </button>
-              </div>
-            </label>
-
-            <label className="date-field">
-              End Date
-              <input
-                ref={endDateInputRef}
-                type="date"
-                name="endDate"
-                value={form.endDate}
-                onChange={onChangeField}
-                placeholder="dd/mm/yyyy"
-                required
-              />
-            </label>
-
-            <div className="duration-row">
-              {DURATION_OPTIONS.map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  className="duration-btn"
-                  onClick={() => onApplyDuration(option.months)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="palette-row">
-            {taskPalette.map((color) => (
-              <button
-                key={color}
-                type="button"
-                className={`swatch ${form.color === color ? "active" : ""}`}
-                style={{ backgroundColor: color }}
-                aria-label={`Select color ${color}`}
-                onClick={() => onPickColor(color)}
-              />
-            ))}
-          </div>
-
-          <div className="form-actions">
-            <button type="submit">Add Task</button>
-            <button type="button" className="secondary" onClick={resetForm}>
-              Clear
-            </button>
-          </div>
-        </form>
-      </aside>
-
-      <main className="right-panel">
-        <div className="timeline-header">
-          <div className="timeline-header-top">
-            <h2>Timeline</h2>
-            <div className="timeline-range-buttons">
-              {TIMELINE_RANGE_OPTIONS.map((option) => (
-                <button
-                  key={`range-${option.label}`}
-                  type="button"
-                  className={`timeline-range-btn ${timelineRangeMonths === option.months ? "active" : ""}`}
-                  onClick={() => onSelectTimelineRange(option.months)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <p>Hover a task for a second to open details.</p>
-        </div>
-        <div className="timeline-frame">
-          <div ref={timelineContainerRef} className="timeline" />
-        </div>
-      </main>
+      <RightPanel
+        timelineViewOptions={TIMELINE_VIEW_OPTIONS}
+        timelineViewKey={timelineViewKey}
+        onSelectTimelineView={onSelectTimelineView}
+        timelineContainerRef={timelineContainerRef}
+      />
 
       {popover.visible && popover.draft ? (
         <section
@@ -802,6 +814,7 @@ export default function App() {
                 value={popover.draft.endDate}
                 onChange={onPopoverFieldChange}
                 disabled={!popover.unlocked}
+                min={todayISO}
                 required
               />
             </label>
@@ -837,38 +850,6 @@ export default function App() {
         </section>
       ) : null}
 
-      {showLogs ? (
-        <section className="logs-panel">
-          <div className="logs-head">
-            <h3>Logs</h3>
-            <div className="logs-head-actions">
-              <button type="button" className="secondary" onClick={() => setShowLogs(false)}>
-                Close
-              </button>
-              <button type="button" className="secondary" onClick={() => setLogs([])}>
-                Clear Logs
-              </button>
-              <button
-                type="button"
-                className={loggingEnabled ? "secondary" : ""}
-                onClick={() => setLoggingEnabled((current) => !current)}
-              >
-                {loggingEnabled ? "Stop Logs" : "Start Logs"}
-              </button>
-            </div>
-          </div>
-
-          <p className="logs-subtle">
-            Logging is currently <strong>{loggingEnabled ? "ON" : "OFF"}</strong>.
-          </p>
-          {/* <p className="logs-subtle">Actor name is resolved from the active signed-in user context.</p> */}
-
-          <div className="logs-list">
-            {logs.length === 0 ? <p className="logs-empty">No logs yet.</p> : null}
-            {logs.length > 0 ? <pre>{toTextLog(logs)}</pre> : null}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }
