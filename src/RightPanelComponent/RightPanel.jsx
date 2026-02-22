@@ -11,9 +11,6 @@ export default function RightPanel({
   onChangeGoToInput,
   onSubmitGoTo,
   goToInputPattern,
-  hasGoToMarker,
-  goToMarkerLeft,
-  onClearGoTo,
   timelineCanvasRef,
   timelineContainerRef
 }) {
@@ -68,14 +65,6 @@ export default function RightPanel({
       <div className="timeline-frame">
         <div ref={timelineCanvasRef} className="timeline-canvas">
           <div ref={timelineContainerRef} className="timeline" />
-          {hasGoToMarker ? (
-            <div className="goto-marker" style={{ left: `${goToMarkerLeft}px` }}>
-              <button type="button" className="goto-marker-pin" onClick={onClearGoTo} aria-label="Clear go-to marker">
-                ×
-              </button>
-              <div className="goto-marker-line" />
-            </div>
-          ) : null}
         </div>
       </div>
     </main>

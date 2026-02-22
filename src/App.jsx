@@ -51,6 +51,7 @@ const POPOVER_WIDTH = 320;
 const POPOVER_HEIGHT = 330;
 const POPOVER_VIEWPORT_PADDING = 12;
 const POPOVER_CURSOR_OFFSET = 2;
+const GO_TO_CUSTOM_TIME_ID = "go-to-marker";
 
 function dateToLocalISO(dateValue) {
   const date = new Date(dateValue);
@@ -256,7 +257,6 @@ export default function App() {
   const [showGoToControls, setShowGoToControls] = useState(false);
   const [goToInputValue, setGoToInputValue] = useState("");
   const [goToDate, setGoToDate] = useState(null);
-  const [goToMarkerLeft, setGoToMarkerLeft] = useState(null);
   const [form, setForm] = useState(() => createEmptyForm(taskPalette[0]));
   const [popover, setPopover] = useState({
     visible: false,
@@ -397,6 +397,61 @@ export default function App() {
     });
   }
 
+  function updateGoToPinVerticalPosition() {
+    const timelineElement = timelineContainerRef.current;
+    if (!timelineElement) return;
+    const axisForeground = timelineElement.querySelector(".vis-time-axis.vis-foreground");
+    const boundaryPx = axisForeground
+      ? Math.round(axisForeground.offsetTop + axisForeground.offsetHeight)
+      : 36;
+    timelineElement.style.setProperty("--goto-pin-top", `${boundaryPx}px`);
+  }
+
+  function syncGoToCustomTimeMarker(targetDate) {
+    if (!timelineRef.current) return;
+    const timeline = timelineRef.current;
+    const markerDate = new Date(targetDate);
+
+    try {
+      timeline.setCustomTime(markerDate, GO_TO_CUSTOM_TIME_ID);
+    } catch {
+      timeline.addCustomTime(markerDate, GO_TO_CUSTOM_TIME_ID);
+    }
+
+    timeline.setCustomTimeMarker("×", GO_TO_CUSTOM_TIME_ID, false);
+    timeline.setCustomTimeTitle("", GO_TO_CUSTOM_TIME_ID);
+
+    const markerBar = timelineContainerRef.current?.querySelector(
+      `.vis-custom-time.${GO_TO_CUSTOM_TIME_ID}`
+    );
+    markerBar?.classList.add("goto-custom-time");
+
+    const markerPin = markerBar?.querySelector(".vis-custom-time-marker");
+    if (markerPin) {
+      markerPin.classList.add("goto-custom-time-pin");
+      markerPin.setAttribute("role", "button");
+      markerPin.setAttribute("aria-label", "Clear go-to marker");
+      markerPin.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClearGoTo();
+      };
+    }
+
+    window.requestAnimationFrame(() => {
+      updateGoToPinVerticalPosition();
+    });
+  }
+
+  function removeGoToCustomTimeMarker() {
+    if (!timelineRef.current) return;
+    try {
+      timelineRef.current.removeCustomTime(GO_TO_CUSTOM_TIME_ID);
+    } catch {
+      // no-op when marker is not present
+    }
+  }
+
   useEffect(() => {
     if (!timelineContainerRef.current) return;
 
@@ -510,6 +565,7 @@ export default function App() {
       if (properties?.byUser) {
         setTimelineViewKey(null);
       }
+      updateGoToPinVerticalPosition();
     };
 
     timelineRef.current.on("itemover", handleItemOver);
@@ -596,6 +652,18 @@ export default function App() {
     gestureScopeElement?.addEventListener("gesturestart", handleGestureEvent, { passive: false });
     gestureScopeElement?.addEventListener("gesturechange", handleGestureEvent, { passive: false });
     gestureScopeElement?.addEventListener("gestureend", handleGestureEvent, { passive: false });
+    window.addEventListener("resize", updateGoToPinVerticalPosition);
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            updateGoToPinVerticalPosition();
+          })
+        : null;
+    resizeObserver?.observe(timelineContainerRef.current);
+
+    window.requestAnimationFrame(() => {
+      updateGoToPinVerticalPosition();
+    });
 
     return () => {
       clearHoverTimer();
@@ -609,6 +677,8 @@ export default function App() {
       gestureScopeElement?.removeEventListener("gesturestart", handleGestureEvent);
       gestureScopeElement?.removeEventListener("gesturechange", handleGestureEvent);
       gestureScopeElement?.removeEventListener("gestureend", handleGestureEvent);
+      window.removeEventListener("resize", updateGoToPinVerticalPosition);
+      resizeObserver?.disconnect();
       timelineRef.current?.destroy();
       timelineRef.current = null;
     };
@@ -682,27 +752,13 @@ export default function App() {
   }, [timelineWindow, activeTheme]);
 
   useEffect(() => {
-    if (!goToDate || !timelineWindow || !timelineContainerRef.current) {
-      setGoToMarkerLeft(null);
+    if (!timelineRef.current) return;
+    if (!goToDate) {
+      removeGoToCustomTimeMarker();
       return;
     }
-
-    const totalRange = timelineWindow.endMs - timelineWindow.startMs;
-    const width = timelineContainerRef.current.clientWidth;
-    if (totalRange <= 0 || width <= 0) {
-      setGoToMarkerLeft(null);
-      return;
-    }
-
-    const ratio = (goToDate.getTime() - timelineWindow.startMs) / totalRange;
-    if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
-      setGoToMarkerLeft(null);
-      return;
-    }
-
-    const x = ratio * width;
-    setGoToMarkerLeft(Math.max(0, Math.min(width, x)));
-  }, [goToDate, timelineWindow]);
+    syncGoToCustomTimeMarker(goToDate);
+  }, [goToDate]);
 
   function onChangeField(event) {
     const { name, value } = event.target;
@@ -953,6 +1009,7 @@ export default function App() {
     }
 
     goToInputRef.current?.setCustomValidity("");
+    syncGoToCustomTimeMarker(focusDate);
     setGoToDate(focusDate);
     setTimelineViewKey(null);
 
@@ -965,8 +1022,8 @@ export default function App() {
   }
 
   function onClearGoTo() {
+    removeGoToCustomTimeMarker();
     setGoToDate(null);
-    setGoToMarkerLeft(null);
     setGoToInputValue("");
     setShowGoToControls(false);
     goToInputRef.current?.setCustomValidity("");
@@ -1025,9 +1082,6 @@ export default function App() {
         onChangeGoToInput={onChangeGoToInput}
         onSubmitGoTo={onSubmitGoTo}
         goToInputPattern={DATE_DD_MM_YYYY_INPUT_PATTERN}
-        hasGoToMarker={Boolean(goToDate) && goToMarkerLeft !== null}
-        goToMarkerLeft={goToMarkerLeft}
-        onClearGoTo={onClearGoTo}
         timelineCanvasRef={timelineCanvasRef}
         timelineContainerRef={timelineContainerRef}
       />

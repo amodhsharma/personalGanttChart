@@ -123,7 +123,8 @@
   border: 1px solid var(--timeline-border);
   border-radius: 10px;
   --axis-month-gradient: none;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .timeline::before {
@@ -137,40 +138,37 @@
   z-index: 0;
 }
 
-.goto-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-  z-index: 15;
+.timeline .vis-custom-time.goto-custom-time {
+  border-left: 2px solid #2f82d9;
+  z-index: 8;
+  overflow: visible;
 }
 
-.goto-marker-pin {
+.timeline .vis-custom-time.goto-custom-time .vis-custom-time-marker.goto-custom-time-pin {
+  position: absolute;
+  top: var(--goto-pin-top, 36px);
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  padding: 0;
   border: 1px solid #1f5e99;
   background: #2f82d9;
   color: #ffffff;
   font-size: 16px;
   line-height: 1;
-  transform: translateY(-12px);
   display: flex;
   align-items: center;
   justify-content: center;
+  transform: translateX(-11px);
+  cursor: pointer;
+  user-select: none;
   pointer-events: auto;
+  z-index: 25;
 }
 
-.goto-marker-line {
-  width: 2px;
-  flex: 1;
-  background: #2f82d9;
-  box-shadow: 0 0 0 1px rgba(47, 130, 217, 0.22);
+.timeline .vis-panel.vis-background,
+.timeline .vis-panel.vis-background-vertical,
+.timeline .vis-panel.vis-center {
+  overflow: visible !important;
 }
 
 .vis-timeline {
